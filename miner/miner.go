@@ -3,6 +3,10 @@ package miner
 import (
 	j "encoding/json"
 	"errors"
+	"log"
+	"net/http"
+	"time"
+
 	"github.com/dynm/gominer/algorithms/odocrypt"
 	"github.com/dynm/gominer/algorithms/skunk"
 	"github.com/dynm/gominer/algorithms/veo"
@@ -12,10 +16,6 @@ import (
 	"github.com/dynm/gominer/driver"
 	"github.com/dynm/gominer/mining"
 	"github.com/dynm/gominer/types"
-	"github.com/dynm/gominer/webservice"
-	"log"
-	"net/http"
-	"time"
 
 	"github.com/gorilla/mux"
 	"github.com/gorilla/rpc"
@@ -71,7 +71,6 @@ type Miner struct {
 	clients   []*clients.Client
 	miners    []*mining.Miner
 	activeIdx int
-	wm        *webservice.MiningStatus
 }
 
 func getMinerByName(pool *types.Pool) (mining.Miner, clients.Client, error) {
