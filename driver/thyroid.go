@@ -528,6 +528,7 @@ func (thy *Thyroid) processNonce() {
 			cachedWork := thy.workCache[nNonce.jobid]
 			thy.workCacheLock.RUnlock()
 			thy.feedDog <- true
+			thy.goldennonceCounter++
 			if cachedWork.Header != nil {
 				thy.checkAndSubmitJob(nNonce.nonce[:], cachedWork)
 			}
@@ -604,7 +605,6 @@ func (thy *Thyroid) checkAndSubmitJob(nonce []byte, work MiningWork) (goodNonce 
 	)
 	if bytes.Equal(blockhash[0:3], []byte{0x00, 0x00, 0x00}) {
 		goodNonce = true
-		thy.goldennonceCounter++
 		// thy.logger.Debug("SubmitJob", zap.String("Stat", "Golden nonce found!"))
 		thy.wronghashCounter = 0
 		// if stratum.CheckDifficultyReal(blockhash, work.Target) {
