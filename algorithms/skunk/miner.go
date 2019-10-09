@@ -1,13 +1,13 @@
 package skunk
 
 import (
-	"gominer/algorithms/generalstratum"
-	"gominer/clients/stratum"
-	"gominer/driver"
+	"github.com/dynm/gominer/algorithms/generalstratum"
+	"github.com/dynm/gominer/clients/stratum"
+	"github.com/dynm/gominer/driver"
 	"math/big"
 	"time"
 
-	"gominer/mining"
+	"github.com/dynm/gominer/mining"
 
 	"go.uber.org/zap"
 )

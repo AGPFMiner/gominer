@@ -7,7 +7,7 @@ package skunk
 import "C"
 import (
 	"unsafe"
-	"gominer/clients/stratum"
+	"github.com/dynm/gominer/clients/stratum"
 )
 
 //Skunkhash calculates skunk hash

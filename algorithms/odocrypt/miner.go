@@ -2,10 +2,10 @@ package odocrypt
 
 import (
 	"encoding/hex"
-	"gominer/algorithms/generalstratum"
-	"gominer/clients/stratum"
-	"gominer/driver"
-	"gominer/mining"
+	"github.com/dynm/gominer/algorithms/generalstratum"
+	"github.com/dynm/gominer/clients/stratum"
+	"github.com/dynm/gominer/driver"
+	"github.com/dynm/gominer/mining"
 	"time"
 
 	"go.uber.org/zap"

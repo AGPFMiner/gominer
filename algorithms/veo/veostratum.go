@@ -9,9 +9,9 @@ import (
 	"sync"
 	"time"
 
-	"gominer/clients"
-	"gominer/clients/stratum"
-	"gominer/types"
+	"github.com/dynm/gominer/clients"
+	"github.com/dynm/gominer/clients/stratum"
+	"github.com/dynm/gominer/types"
 
 	"github.com/mitchellh/mapstructure"
 )

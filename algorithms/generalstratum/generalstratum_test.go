@@ -2,7 +2,7 @@ package generalstratum
 
 import (
 	"encoding/hex"
-	"gominer/types"
+	"github.com/dynm/gominer/types"
 	"strconv"
 	"strings"
 	"testing"

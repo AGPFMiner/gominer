@@ -1,7 +1,7 @@
 package veo
 
 import (
-	"gominer/clients/stratum"
+	"github.com/dynm/gominer/clients/stratum"
 	"testing"
 	"time"
 

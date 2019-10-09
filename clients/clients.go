@@ -1,7 +1,7 @@
 //Package clients provides some utilities and common code for specific client implementations
 package clients
 
-import "gominer/types"
+import "github.com/dynm/gominer/types"
 
 //HeaderReporter defines the required method a Groestl client or pool client should implement for miners to be able to report solved headers
 type HeaderReporter interface {

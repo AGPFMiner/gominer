@@ -3,9 +3,9 @@ package skunk
 import (
 	"strings"
 
-	"gominer/algorithms/generalstratum"
-	"gominer/clients"
-	"gominer/types"
+	"github.com/dynm/gominer/algorithms/generalstratum"
+	"github.com/dynm/gominer/clients"
+	"github.com/dynm/gominer/types"
 )
 
 // NewClient creates a new client given a '[stratum+tcp://]host:port' connectionstring

@@ -1,11 +1,11 @@
 package main
 
 import (
-	"gominer/algorithms/odocrypt"
-	"gominer/algorithms/skunk"
-	"gominer/algorithms/veo"
-	"gominer/miner"
-	"gominer/types"
+	"github.com/dynm/gominer/algorithms/odocrypt"
+	"github.com/dynm/gominer/algorithms/skunk"
+	"github.com/dynm/gominer/algorithms/veo"
+	"github.com/dynm/gominer/miner"
+	"github.com/dynm/gominer/types"
 	"log"
 	"testing"
 	"time"

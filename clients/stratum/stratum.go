@@ -6,7 +6,7 @@ import (
 	"bufio"
 	"encoding/json"
 	"errors"
-	"gominer/types"
+	"github.com/dynm/gominer/types"
 	"log"
 	"net"
 	"sync"

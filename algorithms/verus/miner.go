@@ -1,11 +1,11 @@
 package verus
 
 import (
-	"gominer/clients/stratum"
-	"gominer/driver"
+	"github.com/dynm/gominer/clients/stratum"
+	"github.com/dynm/gominer/driver"
 	"time"
 
-	"gominer/mining"
+	"github.com/dynm/gominer/mining"
 
 	"go.uber.org/zap"
 )

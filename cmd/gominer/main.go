@@ -12,8 +12,8 @@ package main
 
 import (
 	"fmt"
-	"gominer/miner"
-	"gominer/types"
+	"github.com/dynm/gominer/miner"
+	"github.com/dynm/gominer/types"
 	"time"
 
 	"github.com/fsnotify/fsnotify"

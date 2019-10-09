@@ -1,7 +1,7 @@
 package mining
 
 import (
-	"gominer/clients"
+	"github.com/dynm/gominer/clients"
 	"time"
 
 	"go.uber.org/zap"

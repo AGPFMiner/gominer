@@ -2,11 +2,11 @@ package veo
 
 import (
 	"crypto/sha256"
-	"gominer/driver"
+	"github.com/dynm/gominer/driver"
 	"log"
 	"time"
 
-	"gominer/mining"
+	"github.com/dynm/gominer/mining"
 
 	"go.uber.org/zap"
 )

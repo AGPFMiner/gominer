@@ -1,8 +1,8 @@
 package driver
 
 import (
-	"gominer/clients"
-	"gominer/types"
+	"github.com/dynm/gominer/clients"
+	"github.com/dynm/gominer/types"
 )
 
 const (

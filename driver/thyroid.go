@@ -14,12 +14,12 @@ import (
 	"sync"
 	"time"
 
-	"gominer/boardman"
-	"gominer/clients"
-	"gominer/clients/stratum"
-	"gominer/mining"
-	"gominer/statistics"
-	"gominer/types"
+	"github.com/dynm/gominer/boardman"
+	"github.com/dynm/gominer/clients"
+	"github.com/dynm/gominer/clients/stratum"
+	"github.com/dynm/gominer/mining"
+	"github.com/dynm/gominer/statistics"
+	"github.com/dynm/gominer/types"
 
 	"github.com/jacobsa/go-serial/serial"
 	"github.com/jinzhu/copier"
