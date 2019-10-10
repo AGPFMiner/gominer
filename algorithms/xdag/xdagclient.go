@@ -79,6 +79,9 @@ func (sc *XdagClient) Start() {
 //SetDeprecatedJobCall does nothing
 func (sc *XdagClient) SetDeprecatedJobCall(call clients.DeprecatedJobCall) {}
 
+//SetCleanJobEventCall does nothing
+func (sc *XdagClient) SetCleanJobEventCall(call clients.CleanJobEventCall) {}
+
 //GetHeaderForWork fetches new work from the SIA daemon
 func (sc *XdagClient) GetHeaderForWork() (target []byte, difficulty float64, header []byte, deprecationChannel chan bool, job interface{}, err error) {
 	//the deprecationChannel is not used but return a valid channel anyway

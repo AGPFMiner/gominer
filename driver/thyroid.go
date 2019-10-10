@@ -285,6 +285,10 @@ func (thy *Thyroid) createWork() {
 		thy.cleanJobChannel <- true
 	})
 
+	thy.Client.SetCleanJobEventCall(func() {
+		thy.cleanJobChannel <- true
+	})
+
 	var target, header []byte
 	var difficulty float64
 	var job interface{}

@@ -20,6 +20,10 @@ type HeaderProvider interface {
 // the server indicates that all previous jobs should be abandoned
 type DeprecatedJobCall func(jobid string)
 
+//CleanJobEventCall is a function that can be registered on a client to be executed when
+// cleanJob is true
+type CleanJobEventCall func()
+
 // Client defines the interface for a client towards a work provider
 type Client interface {
 	HeaderProvider
@@ -29,6 +33,7 @@ type Client interface {
 	PoolConnectionStates() (stats types.PoolConnectionStates)
 	GetPoolStats() (stats types.PoolStates)
 	SetDeprecatedJobCall(call DeprecatedJobCall)
+	SetCleanJobEventCall(call CleanJobEventCall)
 }
 
 //BaseClient implements some common properties and functionality
@@ -36,6 +41,7 @@ type BaseClient struct {
 	deprecationChannels map[string]chan bool
 
 	deprecatedJobCall DeprecatedJobCall
+	cleanJobEventCall CleanJobEventCall
 }
 
 //DeprecateOutstandingJobs closes all deprecationChannels and removes them from the list
@@ -54,6 +60,10 @@ func (sc *BaseClient) DeprecateOutstandingJobs() {
 			go call(jobid)
 		}
 	}
+	cleanJobEventCall := sc.cleanJobEventCall
+	if cleanJobEventCall != nil {
+		go cleanJobEventCall()
+	}
 }
 
 // AddJobToDeprecate add the jobid to the list of jobs that should be deprecated when the times comes
@@ -69,4 +79,9 @@ func (sc *BaseClient) GetDeprecationChannel(jobid string) chan bool {
 //SetDeprecatedJobCall sets the function to be called when the previous jobs should be abandoned
 func (sc *BaseClient) SetDeprecatedJobCall(call DeprecatedJobCall) {
 	sc.deprecatedJobCall = call
+}
+
+//SetCleanJobEventCall sets the function to be called when the previous jobs should be abandoned
+func (sc *BaseClient) SetCleanJobEventCall(call CleanJobEventCall) {
+	sc.cleanJobEventCall = call
 }

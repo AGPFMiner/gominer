@@ -6,11 +6,12 @@ import (
 	"bufio"
 	"encoding/json"
 	"errors"
-	"github.com/dynm/gominer/types"
 	"log"
 	"net"
 	"sync"
 	"time"
+
+	"github.com/dynm/gominer/types"
 )
 
 // request : A remote method is invoked by sending a request to the remote stratum service.
@@ -85,7 +86,7 @@ type Client struct {
 }
 
 func (c *Client) watchDog() {
-	timeout := time.Second * 30
+	timeout := time.Second * 60
 	if c.Veo {
 		timeout = time.Second * 300
 	}
