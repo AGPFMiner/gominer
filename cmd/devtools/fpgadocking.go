@@ -5,13 +5,14 @@ import (
 	"bytes"
 	"encoding/hex"
 	"fmt"
-	"github.com/dynm/gominer/algorithms/odocrypt"
-	"github.com/dynm/gominer/clients"
-	"github.com/dynm/gominer/types"
 	"io"
 	"log"
 	"sync"
 	"time"
+
+	"github.com/dynm/gominer/algorithms/odocrypt"
+	"github.com/dynm/gominer/clients"
+	"github.com/dynm/gominer/types"
 
 	"github.com/jacobsa/go-serial/serial"
 	// _ "net/http/pprof"
@@ -137,8 +138,10 @@ const (
 	initCnt1          = "0629"
 )
 
+var jobID uint8
+
 func (d *Docking) writeRepeatly() {
-	jobid := uint8(0)
+	// jobid := uint8(0)
 	for {
 		_, _, header, _, _, _ := d.Client.GetHeaderForWork()
 		// headerStr := "020E0020304762D062B9A693EE881F5CDE771BEA84268B1CF382583F01000000000000005B0B40CD2F1FAA2FF5D860B57BFEC804E4925A80431F456EE276A7C0871C12F5F621905D542E471A00000000"
@@ -153,8 +156,8 @@ func (d *Docking) writeRepeatly() {
 		}
 		d.blockheader = header
 		d.mutex.Unlock()
-		packet := odocrypt.ConstructHeaderPackets(header, jobid)
-		jobid++
+		packet := odocrypt.ConstructHeaderPackets(header, jobID)
+		jobID++
 		select {
 		case <-time.After(time.Second * 1):
 			{
