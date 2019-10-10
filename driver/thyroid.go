@@ -577,6 +577,7 @@ func (thy *Thyroid) singleMinerOnce(boardID int, cleanJob, timeout bool) {
 
 		thy.logger.Debug("Write Packet",
 			zap.Int("BoardID", boardID),
+			zap.Uint8("jobID", thy.boardJobID),
 			zap.Bool("CleanJob", cleanJob),
 			zap.Bool("Timeout", timeout),
 			zap.String("Header", fmt.Sprintf("%02X", work.Header)))
