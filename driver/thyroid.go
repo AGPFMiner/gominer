@@ -47,22 +47,22 @@ type Thyroid struct {
 	port                            io.ReadWriteCloser
 	nonceChan                       chan SingleNonce
 
-	shareCounter       uint64
-	goldennonceCounter uint64
-	wronghashCounter   uint64
-	mutex              *sync.Mutex
-	workCacheLock      *sync.RWMutex
-	readNoncePacket    []byte
-	boardID            int
-	boardJobID         uint8
-	chanSlot           map[int]chan bool
-	workCache          map[uint8]MiningWork
-	nonceStats         map[int]uint64
-	prevEpochEnd       time.Time
-	prevEpochNonceNum  uint64
-	hr                 *statistics.HashRate
-	stats              types.HardwareStats
-	feedDog            chan bool
+	shareCounter        uint64
+	goldennonceCounter  uint64
+	wronghashCounter    uint64
+	writeReadNonceMutex *sync.Mutex
+	workCacheLock       *sync.RWMutex
+	readNoncePacket     []byte
+	boardID             int
+	boardJobID          uint8
+	chanSlot            map[int]chan bool
+	workCache           map[uint8]MiningWork
+	nonceStats          map[int]uint64
+	prevEpochEnd        time.Time
+	prevEpochNonceNum   uint64
+	hr                  *statistics.HashRate
+	stats               types.HardwareStats
+	feedDog             chan bool
 }
 
 func NewThyroid(args mining.MinerArgs) (drv Driver) {
@@ -136,7 +136,7 @@ func (thy *Thyroid) Init(args interface{}) {
 	thy.wronghashCounter = 0
 	thy.boardID = 0
 	thy.boardJobID = 0
-	thy.mutex = &sync.Mutex{}
+	thy.writeReadNonceMutex = &sync.Mutex{}
 	thy.workCacheLock = &sync.RWMutex{}
 	thy.chanSlot = make(map[int]chan bool)
 	thy.nonceChan = make(chan SingleNonce, 100)
@@ -254,6 +254,7 @@ func (thy *Thyroid) Start() {
 	default:
 		go thy.readNonce()
 	}
+	go thy.writeReadNonceRepeatly()
 	go thy.processNonce()
 	go thy.watchDog()
 }
@@ -541,12 +542,22 @@ func (thy *Thyroid) processNonce() {
 
 // type WorkMap map[string]miningWork
 
+func (thy *Thyroid) writeReadNonceRepeatly() {
+	for {
+		select {
+		case <-time.After(time.Millisecond * 5):
+			thy.writeReadNonceMutex.Lock()
+			thy.port.Write(thy.readNoncePacket)
+			thy.writeReadNonceMutex.Unlock()
+		}
+	}
+}
+
 func (thy *Thyroid) singleMinerOnce(boardID int, cleanJob, timeout bool) {
 	var work *MiningWork
 	var continueMining bool
 	thy.selectBoard(boardID)
 	time.Sleep(time.Millisecond * thy.PollDelay)
-	thy.port.Write(thy.readNoncePacket)
 
 	if cleanJob || timeout {
 		select {
@@ -587,11 +598,13 @@ func (thy *Thyroid) singleMinerOnce(boardID int, cleanJob, timeout bool) {
 		// 	log.Printf("%02X\n", headerPacket[i:i+6])
 		// }
 		// log.Printf("Trying to write packet to board: %d (cleanJob:%v, timeout:%v), header: %02X\n", boardID, cleanJob, timeout, work.Header)
+		thy.writeReadNonceMutex.Lock()
 		_, err := thy.port.Write(headerPacket)
 		if err != nil {
 			thy.logger.Error("port.Write")
 		}
 		thy.writeStartMine()
+		thy.writeReadNonceMutex.Unlock()
 	}
 }
 
