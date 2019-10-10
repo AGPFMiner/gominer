@@ -664,9 +664,6 @@ func (thy *Thyroid) initPort() {
 func (thy *Thyroid) minePollVer() {
 	var cleanJob bool
 	var timeout bool
-	firstRun := true
-	prevTime := time.Now()
-	// WORKLOOP:
 	for {
 		select {
 		case <-thy.driverQuit:
