@@ -542,10 +542,8 @@ func (thy *Thyroid) singleMinerOnce(boardID int, cleanJob, timeout bool) {
 	var work *MiningWork
 	var continueMining bool
 	thy.selectBoard(boardID)
-	time.Sleep(time.Millisecond * 5)
-	thy.port.Write(thy.readNoncePacket)
-
 	time.Sleep(time.Millisecond * thy.PollDelay)
+	thy.port.Write(thy.readNoncePacket)
 
 	if cleanJob || timeout {
 		select {
@@ -668,14 +666,8 @@ func (thy *Thyroid) minePollVer() {
 	var timeout bool
 	firstRun := true
 	prevTime := time.Now()
-WORKLOOP:
+	// WORKLOOP:
 	for {
-		if time.Now().Sub(prevTime) > time.Millisecond*thy.NonceTraverseTimeout {
-			timeout = true
-			prevTime = time.Now()
-		} else {
-			timeout = false
-		}
 		select {
 		case <-thy.driverQuit:
 			return
@@ -684,22 +676,12 @@ WORKLOOP:
 			for boardID := 0; boardID < thy.muxNums; boardID++ {
 				thy.singleMinerOnce(boardID, cleanJob, timeout)
 			}
-			continue WORKLOOP
-		default:
-			cleanJob = false
-		}
-
-		if firstRun {
-			cleanJob = true
-		}
-		for boardID := 0; boardID < thy.muxNums; boardID++ {
-			thy.singleMinerOnce(boardID, cleanJob, timeout)
-		}
-		if firstRun {
-			firstRun = false
+		case <-time.After(time.Millisecond * thy.NonceTraverseTimeout):
+			for boardID := 0; boardID < thy.muxNums; boardID++ {
+				thy.singleMinerOnce(boardID, cleanJob, timeout)
+			}
 		}
 	}
-
 }
 
 func (thy *Thyroid) readVersion() {
