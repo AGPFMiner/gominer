@@ -669,11 +669,12 @@ func (thy *Thyroid) minePollVer() {
 		case <-thy.driverQuit:
 			return
 		case <-thy.cleanJobChannel:
-			cleanJob = true
+			cleanJob, timeout = true, false
 			for boardID := 0; boardID < thy.muxNums; boardID++ {
 				thy.singleMinerOnce(boardID, cleanJob, timeout)
 			}
 		case <-time.After(time.Millisecond * thy.NonceTraverseTimeout):
+			cleanJob, timeout = false, true
 			for boardID := 0; boardID < thy.muxNums; boardID++ {
 				thy.singleMinerOnce(boardID, cleanJob, timeout)
 			}
