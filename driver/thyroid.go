@@ -533,7 +533,7 @@ func (thy *Thyroid) processNonce() {
 			thy.feedDog <- true
 			thy.goldennonceCounter++
 			if cachedWork.Header != nil {
-				thy.checkAndSubmitJob(nNonce.nonce[:], cachedWork)
+				thy.checkAndSubmitJob(nNonce, cachedWork)
 			}
 		}
 	}
@@ -594,8 +594,10 @@ func (thy *Thyroid) singleMinerOnce(boardID int, cleanJob, timeout bool) {
 	}
 }
 
-func (thy *Thyroid) checkAndSubmitJob(nonce []byte, work MiningWork) (goodNonce bool) {
+func (thy *Thyroid) checkAndSubmitJob(nNonce SingleNonce, work MiningWork) (goodNonce bool) {
 	goodNonce = false
+	nonce := nNonce.nonce[:]
+	jobid := nNonce.jobid
 	workHeader := append(work.Header, nonce...)
 	fmt.Printf("workHeader: %02X\n", workHeader)
 	blockhash := thy.MiningFuncs[thy.Client.AlgoName()].RegenHash(workHeader)
@@ -621,11 +623,13 @@ func (thy *Thyroid) checkAndSubmitJob(nonce []byte, work MiningWork) (goodNonce 
 			if e != nil {
 				thy.logger.Info("SubmitJob",
 					zap.String("Stat", "Error submitting solution"),
+					zap.Uint8("jobID", jobid),
 					zap.Error(e),
 				)
 			} else {
 				thy.logger.Info("SubmitJob",
 					zap.String("Stat", "Accepted!"),
+					zap.Uint8("jobID", jobid),
 				)
 				thy.shareCounter++
 			}
