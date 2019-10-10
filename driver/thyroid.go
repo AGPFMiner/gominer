@@ -282,7 +282,6 @@ func (thy *Thyroid) createWork() {
 		for i := 0; i <= numberOfWorkItemsToRemove; i++ {
 			<-thy.miningWorkChannel
 		}
-		thy.cleanJobChannel <- true
 	})
 
 	thy.Client.SetCleanJobEventCall(func() {
