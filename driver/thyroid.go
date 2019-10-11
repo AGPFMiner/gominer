@@ -34,6 +34,10 @@ type SingleNonce struct {
 }
 
 type Thyroid struct {
+	shareCounter       uint64
+	goldennonceCounter uint64
+	wronghashCounter   uint64
+
 	driverQuit        chan struct{}
 	FPGADevice        string
 	HashRateReports   chan *mining.HashRateReport
@@ -49,9 +53,6 @@ type Thyroid struct {
 	port                            io.ReadWriteCloser
 	nonceChan                       chan SingleNonce
 
-	shareCounter        uint64
-	goldennonceCounter  uint64
-	wronghashCounter    uint64
 	writeReadNonceMutex *sync.Mutex
 	workCacheLock       *sync.RWMutex
 	readNoncePacket     []byte

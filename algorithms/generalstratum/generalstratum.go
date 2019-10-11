@@ -38,12 +38,13 @@ type StratumJob struct {
 
 //StratumClient is a client using the stratum protocol
 type StratumClient struct {
-	Connectionstring        string
-	User                    string
-	Password                string
-	Algo                    string
 	accept, reject, discard int32
 	lastAccept              int64
+
+	Connectionstring string
+	User             string
+	Password         string
+	Algo             string
 
 	mutex           sync.Mutex // protects following
 	stratumclient   *stratum.Client
