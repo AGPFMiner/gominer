@@ -51,7 +51,7 @@ type StratumClient struct {
 	stratumclient    *stratum.Client
 	target           Target
 	Difficulty       int
-	accept, reject   int
+	accept, reject   int32
 	lastAccept       int64
 	currentJob       stratumJob
 	clients.BaseClient

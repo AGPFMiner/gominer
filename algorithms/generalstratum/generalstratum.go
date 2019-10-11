@@ -7,6 +7,7 @@ import (
 	"math/big"
 	"reflect"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/dynm/gominer/clients"
@@ -41,7 +42,7 @@ type StratumClient struct {
 	User                    string
 	Password                string
 	Algo                    string
-	accept, reject, discard int
+	accept, reject, discard int32
 	lastAccept              int64
 
 	mutex           sync.Mutex // protects following
@@ -359,9 +360,9 @@ func (sc *StratumClient) SubmitHeader(nonce []byte, job interface{}) (err error)
 	strSubmit := []string{stratumUser, sj.JobID, encodedExtraNonce2, nTime, nonceStr}
 	_, err = c.Call("mining.submit", strSubmit)
 	if err != nil {
-		sc.reject++
+		atomic.AddInt32(&sc.reject, 1)
 	} else {
-		sc.accept++
+		atomic.AddInt32(&sc.accept, 1)
 		sc.lastAccept = time.Now().Unix()
 	}
 	return

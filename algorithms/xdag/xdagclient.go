@@ -33,7 +33,7 @@ type XdagClient struct {
 	Algo                    string
 	pooluser                string
 	connectionstring        string
-	accept, reject, discard int
+	accept, reject, discard int32
 	lastAccept              int64
 }
 

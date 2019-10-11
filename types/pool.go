@@ -22,9 +22,9 @@ type PoolStates struct {
 	User         string               `json:"user"`
 	PoolAddr     string               `json:"pooladdr"`
 	Algo         string               `json:"algo"`
-	Accept       int                  `json:"accept"`
-	Reject       int                  `json:"reject"`
-	Discard      int                  `json:"discard"`
+	Accept       int32                `json:"accept"`
+	Reject       int32                `json:"reject"`
+	Discard      int32                `json:"discard"`
 	Diff         float64              `json:"diff"`
 	LastAccepted int64                `json:"lastaccepted"`
 	Active       bool                 `json:"active"`

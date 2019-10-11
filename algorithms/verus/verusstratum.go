@@ -47,7 +47,7 @@ type StratumClient struct {
 	extranonce2Size         uint
 	target                  Target
 	Difficulty              float64
-	accept, reject, discard int
+	accept, reject, discard int32
 	lastAccept              int64
 	currentJob              stratumJob
 	clients.BaseClient

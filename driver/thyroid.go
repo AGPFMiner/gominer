@@ -14,6 +14,8 @@ import (
 	"sync"
 	"time"
 
+	"sync/atomic"
+
 	"github.com/dynm/gominer/boardman"
 	"github.com/dynm/gominer/clients"
 	"github.com/dynm/gominer/clients/stratum"
@@ -534,7 +536,7 @@ func (thy *Thyroid) processNonce() {
 			thy.feedDog <- true
 			thy.goldennonceCounter++
 			if cachedWork.Header != nil {
-				thy.checkAndSubmitJob(nNonce, cachedWork)
+				go thy.checkAndSubmitJob(nNonce, cachedWork)
 			}
 		}
 	}
@@ -623,7 +625,6 @@ func (thy *Thyroid) checkAndSubmitJob(nNonce SingleNonce, work MiningWork) (good
 	if bytes.Equal(blockhash[0:3], []byte{0x00, 0x00, 0x00}) {
 		goodNonce = true
 		// thy.logger.Debug("SubmitJob", zap.String("Stat", "Golden nonce found!"))
-		thy.wronghashCounter = 0
 		// if stratum.CheckDifficultyReal(blockhash, work.Target) {
 		if thy.MiningFuncs[thy.Client.AlgoName()].DiffChecker(blockhash, work) {
 			thy.logger.Debug("SubmitJob", zap.String("Stat", "Share found!"))
@@ -645,19 +646,23 @@ func (thy *Thyroid) checkAndSubmitJob(nNonce SingleNonce, work MiningWork) (good
 					zap.String("Stat", "Accepted!"),
 					zap.Uint8("jobID", jobid),
 				)
-				thy.shareCounter++
+				atomic.AddUint64(&thy.shareCounter, 1)
+				//thy.shareCounter++
 			}
 			// }()
 		} else {
 			// log.Println(miner.MinerID, "Correct hash but not satisfied with pool diff")
 		}
+		atomic.StoreUint64(&thy.wronghashCounter, 0)
+		// thy.wronghashCounter = 0
 	} else {
 		thy.logger.Debug("SubmitJob",
 			zap.String("WorkHeader", fmt.Sprintf("%02X", workHeader)),
 			zap.String("BlockHash", fmt.Sprintf("%02X", blockhash)),
 		)
 		thy.logger.Info("SubmitJob", zap.String("Stat", "Wrong Hash"))
-		thy.wronghashCounter++
+		atomic.AddUint64(&thy.wronghashCounter, 1)
+		// thy.wronghashCounter++
 	}
 	return
 }
