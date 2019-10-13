@@ -368,7 +368,7 @@ func (thy *Thyroid) readNonce() {
 	scanner := bufio.NewScanner(thy.port)
 	nonceStatsMutex := &sync.Mutex{}
 	split := func(data []byte, atEOF bool) (advance int, token []byte, err error) {
-		// log.Printf("data: %02X\n", data)
+		thy.logger.Debug("UART Data", zap.String("Buffer", fmt.Sprintf("%02X", data)))
 		if len(data) < 9 {
 			return 0, nil, nil
 		}
@@ -430,7 +430,7 @@ func (thy *Thyroid) readNonceOdo() {
 	scanner := bufio.NewScanner(thy.port)
 	nonceStatsMutex := &sync.Mutex{}
 	split := func(data []byte, atEOF bool) (advance int, token []byte, err error) {
-		// log.Printf("data: %02X\n", data)
+		thy.logger.Debug("UART Data", zap.String("Buffer", fmt.Sprintf("%02X", data)))
 		if len(data) < 9 {
 			return 0, nil, nil
 		}
@@ -548,7 +548,7 @@ func (thy *Thyroid) processNonce() {
 func (thy *Thyroid) writeReadNonceRepeatly() {
 	for {
 		select {
-		case <-time.After(time.Millisecond * 5):
+		case <-time.After(time.Millisecond * 10):
 			thy.writeReadNonceMutex.Lock()
 			thy.port.Write(thy.readNoncePacket)
 			thy.writeReadNonceMutex.Unlock()
