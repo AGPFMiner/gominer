@@ -338,7 +338,7 @@ func (thy *Thyroid) write1cSomeJunks() {
 }
 
 func (thy *Thyroid) writeStartMine() {
-	startMine, _ := hex.DecodeString(startMineCtrlAddr + pullLow + startMineCtrlAddr + pullHigh)
+	startMine, _ := hex.DecodeString(startMineCtrlAddr + pullHigh)
 	thy.port.Write(startMine)
 }
 
