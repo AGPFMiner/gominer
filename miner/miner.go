@@ -68,8 +68,8 @@ type Miner struct {
 	currentAlgo string
 
 	driver    driver.Driver
-	clients   []*clients.Client
-	miners    []*mining.Miner
+	clients   []clients.Client
+	miners    []mining.Miner
 	activeIdx int
 }
 
@@ -94,20 +94,50 @@ func getMinerByName(pool *types.Pool) (mining.Miner, clients.Client, error) {
 func (m *Miner) Reload() {
 	m.driver.Stop()
 
+	for _, cli := range m.clients {
+		cli.Stop()
+	}
+	m.clients = make([]clients.Client, len(m.Pools))
+	// m.miners = make([]*mining.Miner, len(m.Pools))
+
 	prevAlgo := m.currentAlgo
 
 	for i, pool := range m.Pools {
+		_, client, err := getMinerByName(&pool)
+		if err != nil {
+			continue
+		}
 		if pool.Active {
 			m.activeIdx = i
 			m.currentAlgo = pool.Algo
 		}
+		go client.Start()
+		m.clients[i] = client
+		// m.miners[i] = &miner
 	}
 
-	m.driver.SetClient(*m.clients[m.activeIdx])
+	logger := initLogger(m.LogLevel)
+
+	driverArgs := &mining.MinerArgs{}
+	driverArgs.FPGADevice = m.DevPath
+	driverArgs.MuxNums = m.MuxNums
+	driverArgs.PollDelay = time.Duration(m.PollDelay)
+	if m.NonceTraverseTimeout != 0 {
+		driverArgs.NonceTraverseTimeout = time.Duration(m.NonceTraverseTimeout)
+	}
+	driverArgs.Logger = logger
+
+	switch m.Driver {
+	case "thyroid":
+		m.driver.Init(*driverArgs)
+	}
+
+	m.driver.SetClient(m.clients[m.activeIdx])
 	if prevAlgo != m.currentAlgo {
 		prevAlgo = m.currentAlgo
 		go m.driver.ProgramBitstream("")
 	}
+
 	m.driver.Start()
 
 }
@@ -116,17 +146,14 @@ func (m *Miner) Reload() {
 func (m *Miner) MinerMain() {
 	log.SetOutput(os.Stdout)
 
-	var hashRateReportsChannel = make(chan *mining.HashRateReport, 1)
-
-	m.clients = make([]*clients.Client, len(m.Pools))
-	m.miners = make([]*mining.Miner, len(m.Pools))
+	m.clients = make([]clients.Client, len(m.Pools))
+	m.miners = make([]mining.Miner, len(m.Pools))
 
 	logger := initLogger(m.LogLevel)
 	// diffMultiplier := 1.0
 
 	driverArgs := &mining.MinerArgs{}
 	driverArgs.FPGADevice = m.DevPath
-	driverArgs.HashRateReports = hashRateReportsChannel
 	driverArgs.MuxNums = m.MuxNums
 	driverArgs.PollDelay = time.Duration(m.PollDelay)
 	if m.NonceTraverseTimeout != 0 {
@@ -140,7 +167,7 @@ func (m *Miner) MinerMain() {
 	}
 
 	for i, pool := range m.Pools {
-		miner, client, err := getMinerByName(&pool)
+		_, client, err := getMinerByName(&pool)
 		if err != nil {
 			continue
 		}
@@ -149,21 +176,16 @@ func (m *Miner) MinerMain() {
 			m.currentAlgo = pool.Algo
 		}
 		go client.Start()
-		m.clients[i] = &client
-		m.miners[i] = &miner
+		m.clients[i] = client
+		// m.miners[i] = &miner
 	}
-	// webminingstatus := new(webservice.MiningStatus)
-	// m.wm = webminingstatus
-	// webminingstatus.StartWebService(m.WebListen, m.WebEnable)
 
 	m.driver.RegisterMiningFuncs("odocrypt", &odocrypt.MiningFuncs{})
 	m.driver.RegisterMiningFuncs("veo", &veo.MiningFuncs{})
 	m.driver.RegisterMiningFuncs("skunk", &skunk.MiningFuncs{})
 	m.driver.RegisterMiningFuncs("xdag", &xdag.MiningFuncs{})
-	// m.driver.RegisterMiningFuncs("verus", &verus.MiningFuncs{})
-	// spew.Dump(m.clients)
-	// spew.Dump(m.activeIdx)
-	m.driver.SetClient(*m.clients[m.activeIdx])
+
+	m.driver.SetClient(m.clients[m.activeIdx])
 
 	switch m.currentAlgo {
 	case "odocrypt":
@@ -184,29 +206,6 @@ func (m *Miner) MinerMain() {
 	r.HandleFunc("/gominer/f_status", m.GetScriptaStatus)
 	r.HandleFunc("/gominer/f_miner", m.MinerCtrl)
 	http.ListenAndServe(":1234", r)
-
-	// var nonceStats *map[int]uint64
-
-	// for {
-	// 	//No need to print at every hashreport, we have time
-
-	// 	report := <-hashRateReportsChannel
-	// 	nonceStats = &report.NonceStats
-
-	// 	report.HashRate[0] /= diffMultiplier
-	// 	report.HashRate[1] /= diffMultiplier
-	// 	report.HashRate[2] /= diffMultiplier
-
-	// 	logger.Info("Total",
-	// 		zap.Float64("TotalHashRate(MH/s) (1min)", report.HashRate[0]),
-	// 		zap.Float64("TotalHashRate(MH/s) (5min)", report.HashRate[1]),
-	// 		zap.Float64("TotalHashRate(MH/s) (1hr)", report.HashRate[2]),
-	// 		zap.Uint64("TotalShares", report.ShareCounter),
-	// 		zap.Uint64("TotalGoldenNonces", report.GoldenNonceCounter),
-	// 	)
-	// 	// fmt.Printf("Total: %.1f MH/s  Shares: %d  Golden Nonces: %d ", totalHashRate, totalShares, totalGoldenNonces)
-	// 	webminingstatus.UpdateStatus(report.HashRate, report.ShareCounter, report.GoldenNonceCounter, nonceStats)
-	// }
 }
 
 type MinerRPCArgs struct {
@@ -221,7 +220,7 @@ type MinerRPCReply struct {
 func (m *Miner) GetPoolsStats(r *http.Request, args *MinerRPCArgs, reply *MinerRPCReply) error {
 	var poolsInfo []*types.PoolStates
 	for _, client := range m.clients {
-		poolInfo := (*client).GetPoolStats()
+		poolInfo := client.GetPoolStats()
 		poolsInfo = append(poolsInfo, &poolInfo)
 	}
 	res, _ := j.Marshal(poolsInfo)
@@ -250,7 +249,7 @@ func (m *Miner) GetScriptaStatus(w http.ResponseWriter, r *http.Request) {
 
 	var poolsInfo []*types.PoolStates
 	for i, client := range m.clients {
-		poolInfo := (*client).GetPoolStats()
+		poolInfo := client.GetPoolStats()
 		if i == m.activeIdx {
 			poolInfo.Active = true
 		} else {
