@@ -141,6 +141,11 @@ func (sc *StratumClient) Start() {
 
 }
 
+//Stop does nothing... no verus
+func (sc *StratumClient) Stop() {
+	return
+}
+
 func (sc *StratumClient) subscribeToStratumDifficultyChanges() {
 	sc.stratumclient.SetNotificationHandler("mining.set_target", func(params []interface{}, result interface{}) {
 		if params == nil || len(params) < 1 {

@@ -54,6 +54,7 @@ type StratumClient struct {
 	Difficulty      float64
 	currentJob      StratumJob
 	clients.BaseClient
+	stopSig chan bool
 }
 
 func (sc *StratumClient) GetPoolStats() (info types.PoolStates) {
@@ -72,6 +73,7 @@ func (sc *StratumClient) AlgoName() string {
 }
 
 func (sc *StratumClient) Start() {
+	sc.stopSig = make(chan bool)
 	sc.startPoolConn()
 	for {
 		select {
@@ -94,8 +96,15 @@ func (sc *StratumClient) Start() {
 					sc.startPoolConn()
 				}
 			}
+		case <-sc.stopSig:
+			return
 		}
 	}
+}
+
+func (sc *StratumClient) Stop() {
+	sc.stopSig <- true
+	sc.stratumclient.Close()
 }
 
 func (sc *StratumClient) PoolConnectionStates() types.PoolConnectionStates {

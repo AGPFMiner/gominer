@@ -55,6 +55,7 @@ type StratumClient struct {
 	lastAccept       int64
 	currentJob       stratumJob
 	clients.BaseClient
+	stopSig chan bool
 }
 
 func (sc *StratumClient) GetPoolStats() (info types.PoolStates) {
@@ -77,6 +78,7 @@ type VeoStratum struct {
 }
 
 func (sc *StratumClient) Start() {
+	sc.stopSig = make(chan bool)
 	sc.startPoolConn()
 	for {
 		select {
@@ -98,6 +100,11 @@ func (sc *StratumClient) Start() {
 			}
 		}
 	}
+}
+
+func (sc *StratumClient) Stop() {
+	sc.stopSig <- true
+	sc.stratumclient.Close()
 }
 
 func (sc *StratumClient) AlgoName() string {
