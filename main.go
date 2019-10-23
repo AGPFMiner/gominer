@@ -12,9 +12,10 @@ package main
 
 import (
 	"fmt"
+	"time"
+
 	"github.com/dynm/gominer/miner"
 	"github.com/dynm/gominer/types"
-	"time"
 
 	"github.com/fsnotify/fsnotify"
 	"github.com/spf13/cobra"
@@ -24,7 +25,7 @@ import (
 ////////////////////////////////////////////////////////////////////////////
 // Constant and data type/structure definitions
 
-const version = "0.1.5"
+const version = "0.1.6"
 
 // The main command describes the service and defaults to printing the
 // help message.
@@ -63,9 +64,8 @@ func init() {
 	viper.SetDefault("muxnum", "1")
 	viper.SetDefault("polldelay", "60")
 	viper.SetDefault("noncetimeout", "1000")
-	viper.SetDefault("api-service", "true")
-	viper.SetDefault("api-lisen", "0.0.0.0:8000")
 	viper.SetDefault("debug", "error")
+	viper.SetDefault("autoprogrambit", true)
 
 	// Viper supports reading from yaml, toml and/or json files. Viper can
 	// search multiple paths. Paths will be searched in the order they are
@@ -93,8 +93,7 @@ func init() {
 		mainminer.PollDelay = viper.GetInt64("polldelay")
 		mainminer.NonceTraverseTimeout = viper.GetInt64("noncetimeout")
 
-		mainminer.WebEnable = viper.GetBool("api-service")
-		mainminer.WebListen = viper.GetString("api-listen")
+		mainminer.AutoProgramBit = viper.GetBool("autoprogrambit")
 
 		mainminer.LogLevel = viper.GetString("debug")
 		mainminer.Reload()
@@ -122,8 +121,7 @@ func mine() {
 	mainminer.PollDelay = viper.GetInt64("polldelay")
 	mainminer.NonceTraverseTimeout = viper.GetInt64("noncetimeout")
 
-	mainminer.WebEnable = viper.GetBool("api-service")
-	mainminer.WebListen = viper.GetString("api-listen")
+	mainminer.AutoProgramBit = viper.GetBool("autoprogrambit")
 
 	mainminer.LogLevel = viper.GetString("debug")
 	mainminer.MinerMain()

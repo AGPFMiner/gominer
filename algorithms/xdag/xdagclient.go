@@ -76,6 +76,10 @@ func (sc *XdagClient) Start() {
 	time.Sleep(time.Second * 20)
 }
 
+func (sc *XdagClient) Stop() {
+	exec.Command("killall", "xdag").Run()
+}
+
 //SetDeprecatedJobCall does nothing
 func (sc *XdagClient) SetDeprecatedJobCall(call clients.DeprecatedJobCall) {}
 

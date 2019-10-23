@@ -29,6 +29,7 @@ type Client interface {
 	HeaderProvider
 	HeaderReporter
 	Start()
+	Stop()
 	AlgoName() (algo string)
 	PoolConnectionStates() (stats types.PoolConnectionStates)
 	GetPoolStats() (stats types.PoolStates)

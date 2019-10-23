@@ -38,12 +38,13 @@ type StratumJob struct {
 
 //StratumClient is a client using the stratum protocol
 type StratumClient struct {
-	Connectionstring        string
-	User                    string
-	Password                string
-	Algo                    string
 	accept, reject, discard int32
 	lastAccept              int64
+
+	Connectionstring string
+	User             string
+	Password         string
+	Algo             string
 
 	mutex           sync.Mutex // protects following
 	stratumclient   *stratum.Client
@@ -53,6 +54,7 @@ type StratumClient struct {
 	Difficulty      float64
 	currentJob      StratumJob
 	clients.BaseClient
+	stopSig chan bool
 }
 
 func (sc *StratumClient) GetPoolStats() (info types.PoolStates) {
@@ -71,6 +73,7 @@ func (sc *StratumClient) AlgoName() string {
 }
 
 func (sc *StratumClient) Start() {
+	sc.stopSig = make(chan bool)
 	sc.startPoolConn()
 	for {
 		select {
@@ -93,8 +96,15 @@ func (sc *StratumClient) Start() {
 					sc.startPoolConn()
 				}
 			}
+		case <-sc.stopSig:
+			return
 		}
 	}
+}
+
+func (sc *StratumClient) Stop() {
+	sc.stopSig <- true
+	sc.stratumclient.Close()
 }
 
 func (sc *StratumClient) PoolConnectionStates() types.PoolConnectionStates {

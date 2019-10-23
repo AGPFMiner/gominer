@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"net"
 	"os/exec"
 	"path"
 	"strings"
@@ -34,9 +35,12 @@ type SingleNonce struct {
 }
 
 type Thyroid struct {
+	shareCounter       uint64
+	goldennonceCounter uint64
+	wronghashCounter   uint64
+
 	driverQuit        chan struct{}
 	FPGADevice        string
-	HashRateReports   chan *mining.HashRateReport
 	MiningFuncs       map[string]MiningFuncs
 	miningWorkChannel chan *MiningWork
 	cleanJobChannel   chan bool
@@ -44,14 +48,12 @@ type Thyroid struct {
 	blockTimeField    []byte
 
 	Client                          clients.Client
+	AutoProgramBit                  bool
 	PollDelay, NonceTraverseTimeout time.Duration
 	logger                          *zap.Logger
 	port                            io.ReadWriteCloser
 	nonceChan                       chan SingleNonce
 
-	shareCounter        uint64
-	goldennonceCounter  uint64
-	wronghashCounter    uint64
 	writeReadNonceMutex *sync.Mutex
 	workCacheLock       *sync.RWMutex
 	readNoncePacket     []byte
@@ -96,18 +98,12 @@ func (thy *Thyroid) GetDriverStats() (stats types.DriverStates) {
 	stats.NonceStats = &thy.nonceStats
 	stats.Algo = thy.Client.AlgoName()
 	// stats.Temperature =
-	if thy.stats != types.Programming {
+	if thy.stats != types.Programming || !isOpenocdRunning() {
 		stats.Temperature, stats.Voltage, _ = getTempeVolt()
 	} else {
 		stats.Temperature, stats.Voltage = "-273.15", "25K"
 	}
-	// thy.HashRateReports <- &mining.HashRateReport{
-	// 	HashRate:           [3]float64{oneMin, fiveMin, oneHour},
-	// 	ShareCounter:       thy.shareCounter,
-	// 	GoldenNonceCounter: thy.goldennonceCounter,
-	// 	Difficulty:         0.0,
-	// 	NonceStats:         thy.nonceStats,
-	// }
+
 	return
 }
 
@@ -121,18 +117,22 @@ func (thy *Thyroid) SetClient(client clients.Client) {
 
 func (thy *Thyroid) Init(args interface{}) {
 	thy.feedDog = make(chan bool, 1)
-	thy.MiningFuncs = make(map[string]MiningFuncs)
+	if thy.MiningFuncs == nil {
+		thy.MiningFuncs = make(map[string]MiningFuncs)
+	}
 
 	argsn := args.(mining.MinerArgs)
 	thy.FPGADevice = argsn.FPGADevice
-	thy.HashRateReports = argsn.HashRateReports
+	thy.AutoProgramBit = argsn.AutoProgramBit
 	thy.PollDelay = argsn.PollDelay
 	thy.NonceTraverseTimeout = argsn.NonceTraverseTimeout
-	thy.cleanJobChannel = make(chan bool)
 	thy.muxNums = argsn.MuxNums
-	thy.logger = argsn.Logger
-	thy.readNoncePacket, _ = hex.DecodeString(nonceReadCtrlAddr + pullLow + nonceReadCtrlAddr + pullHigh)
+	if thy.logger == nil {
+		thy.logger = argsn.Logger
+	}
 
+	thy.readNoncePacket, _ = hex.DecodeString(nonceReadCtrlAddr + pullHigh)
+	thy.cleanJobChannel = make(chan bool)
 	thy.shareCounter = 0
 	thy.goldennonceCounter = 0
 	thy.wronghashCounter = 0
@@ -150,23 +150,32 @@ func (thy *Thyroid) Init(args interface{}) {
 }
 
 const (
-	rpiInterfacePath = "/usr/share/openocd/scripts/interface/raspberrypi-native.cfg"
-	xc7CfgPath       = "/usr/share/openocd/scripts/cpld/xilinx-xc7.cfg"
-	xdacPath         = "/usr/share/openocd/scripts/fpga/xilinx-xadc.cfg"
-	adapterInit      = "adapter_khz 3000; init;"
+	rpiInterfacePath    = "/usr/share/openocd/scripts/interface/raspberrypi-native.cfg"
+	xc7CfgPath          = "/usr/share/openocd/scripts/cpld/xilinx-xc7.cfg"
+	xdacPath            = "/usr/share/openocd/scripts/fpga/xilinx-xadc.cfg"
+	adapterInit         = "adapter_khz 3000; init;"
+	BitStreamDir        = "/opt/scripta/bitstreams"
+	queryopenocdProcess = "sudo ps -aux | grep openocd | grep -v grep"
 )
+
+func isOpenocdRunning() bool {
+	cmd := exec.Command("/bin/sh", "-c", queryopenocdProcess)
+	ret, _ := cmd.Output()
+	if len(ret) > 0 {
+		return true
+	}
+	return false
+}
 
 func programBit(bitstreamPath string) error {
 
 	pldLoadCmd := fmt.Sprintf("%s xc7_program xc7.tap; pld load 0 %s; exit", adapterInit, bitstreamPath)
 	openocdCmd := fmt.Sprintf("sudo openocd -f %s -f %s -c '%s'", rpiInterfacePath, xc7CfgPath, pldLoadCmd)
-	// openocdCmd := fmt.Sprintf("'adapter_khz 3000; init; xc7_program xc7.tap; pld load 0 %s; exit'", bitstreamPath)
 	cmd := exec.Command("/bin/sh", "-c", openocdCmd)
 	return cmd.Run()
 }
 
 func getTempeVolt() (temp, voltage string, err error) {
-
 	readInfo := fmt.Sprintf("%s xadc_report xc7.tap; exit", adapterInit)
 	openocdCmd := fmt.Sprintf("sudo openocd -f %s -f %s -f %s -c '%s'", rpiInterfacePath, xc7CfgPath, xdacPath, readInfo)
 	cmd := exec.Command("/bin/sh", "-c", openocdCmd)
@@ -190,12 +199,17 @@ func getTempeVolt() (temp, voltage string, err error) {
 	return
 }
 
-const (
-	BitStreamDir = "/opt/scripta/bitstreams"
-)
-
-func (thy *Thyroid) ProgramBitstream(bitstreamFilePath string) (err error) {
+func (thy *Thyroid) ProgramBitstream(bitstreamFilePath string, enabled bool) (err error) {
 	var bitstreamName string
+	if !enabled {
+		log.Printf("program bit disabled")
+		return nil
+	}
+
+	if isOpenocdRunning() {
+		log.Printf("openocd running")
+		return nil
+	}
 
 	if bitstreamFilePath == "" {
 		algo := thy.Client.AlgoName()
@@ -231,7 +245,12 @@ func (thy *Thyroid) ProgramBitstream(bitstreamFilePath string) (err error) {
 
 	thy.stats = types.Programming
 	log.Print("bit path:", bitstreamName)
-	err = programBit(path.Join(BitStreamDir, bitstreamName))
+	for board := 0; board < thy.muxNums; board++ {
+		log.Printf("now programming: %d\n", board+1)
+		boardman.SelectJTAG(uint8(board + 1))
+		time.Sleep(time.Millisecond * 10)
+		err = programBit(path.Join(BitStreamDir, bitstreamName))
+	}
 	thy.stats = types.Running
 	return
 }
@@ -241,14 +260,12 @@ func (thy *Thyroid) Start() {
 	thy.driverQuit = make(chan struct{})
 
 	go thy.nonceStatistic()
-	// go thy.statsReporter()
 	log.Println("Starting thyroid driver")
 	thy.miningWorkChannel = make(chan *MiningWork, 1)
 	go thy.createWork()
 
 	thy.initPort()
 	time.Sleep(618 * time.Millisecond)
-	// thy.readVersion()
 	go thy.minePollVer()
 	switch thy.Client.AlgoName() {
 	case "odocrypt":
@@ -256,7 +273,6 @@ func (thy *Thyroid) Start() {
 	default:
 		go thy.readNonce()
 	}
-	go thy.writeReadNonceRepeatly()
 	go thy.processNonce()
 	go thy.watchDog()
 }
@@ -268,8 +284,6 @@ func (thy *Thyroid) Stop() {
 
 func (thy *Thyroid) selectBoard(board int) {
 	thy.boardID = board
-	// cmd := exec.Command("/home/pi/towc/PI", "console", strconv.Itoa(board+1))
-	// cmd.Run()
 	if thy.muxNums == 1 {
 		return
 	}
@@ -317,7 +331,7 @@ func (thy *Thyroid) createWork() {
 			ts = ts - ts%(10*24*60*60)
 			if ts != odoTs {
 				odoTs = ts
-				thy.ProgramBitstream("")
+				thy.ProgramBitstream("", thy.AutoProgramBit)
 			}
 		default:
 		}
@@ -367,7 +381,7 @@ func (thy *Thyroid) readNonce() {
 	scanner := bufio.NewScanner(thy.port)
 	nonceStatsMutex := &sync.Mutex{}
 	split := func(data []byte, atEOF bool) (advance int, token []byte, err error) {
-		// log.Printf("data: %02X\n", data)
+		thy.logger.Debug("UART Data", zap.String("Buffer", fmt.Sprintf("%02X", data)))
 		if len(data) < 9 {
 			return 0, nil, nil
 		}
@@ -429,7 +443,7 @@ func (thy *Thyroid) readNonceOdo() {
 	scanner := bufio.NewScanner(thy.port)
 	nonceStatsMutex := &sync.Mutex{}
 	split := func(data []byte, atEOF bool) (advance int, token []byte, err error) {
-		// log.Printf("data: %02X\n", data)
+		thy.logger.Debug("UART Data", zap.String("Buffer", fmt.Sprintf("%02X", data)))
 		if len(data) < 9 {
 			return 0, nil, nil
 		}
@@ -542,24 +556,12 @@ func (thy *Thyroid) processNonce() {
 	}
 }
 
-// type WorkMap map[string]miningWork
-
-func (thy *Thyroid) writeReadNonceRepeatly() {
-	for {
-		select {
-		case <-time.After(time.Millisecond * 5):
-			thy.writeReadNonceMutex.Lock()
-			thy.port.Write(thy.readNoncePacket)
-			thy.writeReadNonceMutex.Unlock()
-		}
-	}
-}
-
 func (thy *Thyroid) singleMinerOnce(boardID int, cleanJob, timeout bool) {
 	var work *MiningWork
 	var continueMining bool
 	thy.selectBoard(boardID)
 	time.Sleep(time.Millisecond * thy.PollDelay)
+	thy.port.Write(thy.readNoncePacket)
 
 	if cleanJob || timeout {
 		select {
@@ -615,9 +617,9 @@ func (thy *Thyroid) checkAndSubmitJob(nNonce SingleNonce, work MiningWork) (good
 	nonce := nNonce.nonce[:]
 	jobid := nNonce.jobid
 	workHeader := append(work.Header, nonce...)
-	fmt.Printf("workHeader: %02X\n", workHeader)
 	blockhash := thy.MiningFuncs[thy.Client.AlgoName()].RegenHash(workHeader)
 	thy.logger.Debug("SubmitJob",
+		zap.String("Block", fmt.Sprintf("%02X", workHeader)),
 		zap.String("BlockHash", fmt.Sprintf("%02X", blockhash)),
 		zap.String("Target", fmt.Sprintf("%02X", work.Target)),
 		zap.Float64("Difficulty", work.Difficulty),
@@ -668,23 +670,29 @@ func (thy *Thyroid) checkAndSubmitJob(nNonce SingleNonce, work MiningWork) (good
 }
 
 func (thy *Thyroid) initPort() {
-	options := serial.OpenOptions{
-		PortName:        thy.FPGADevice,
-		BaudRate:        115200,
-		DataBits:        8,
-		StopBits:        1,
-		MinimumReadSize: 4,
-		// InterCharacterTimeout: 100,
-	}
+	var err error
+	if strings.HasPrefix(thy.FPGADevice, "@") {
+		conn, err := net.Dial("tcp", strings.TrimPrefix(thy.FPGADevice, "@"))
+		if err != nil {
+			thy.logger.Error("initPort", zap.Error(err))
+		}
+		thy.port = conn
+	} else {
+		options := serial.OpenOptions{
+			PortName:        thy.FPGADevice,
+			BaudRate:        115200,
+			DataBits:        8,
+			StopBits:        1,
+			MinimumReadSize: 4,
+			// InterCharacterTimeout: 100,
+		}
 
-	// Open the port.
-	port, err := serial.Open(options)
-	if err != nil {
-		thy.logger.Fatal("Port", zap.Error(err))
+		// Open the port.
+		thy.port, err = serial.Open(options)
+		if err != nil {
+			thy.logger.Fatal("Port", zap.Error(err))
+		}
 	}
-
-	// Make sure to close it later.
-	thy.port = port
 }
 
 func (thy *Thyroid) minePollVer() {
