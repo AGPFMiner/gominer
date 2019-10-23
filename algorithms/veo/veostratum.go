@@ -98,6 +98,8 @@ func (sc *StratumClient) Start() {
 					sc.startPoolConn()
 				}
 			}
+		case <-sc.stopSig:
+			return
 		}
 	}
 }

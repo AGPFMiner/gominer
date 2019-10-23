@@ -28,8 +28,10 @@ import (
 	"go.uber.org/zap"
 )
 
-func initLogger(loglevel string) *zap.Logger {
-	atom := zap.NewAtomicLevel()
+var atom = zap.NewAtomicLevel()
+var logger *zap.Logger
+
+func selectZapLevel(loglevel string) zapcore.Level {
 	var level zapcore.Level
 	switch loglevel {
 	case "debug":
@@ -41,9 +43,12 @@ func initLogger(loglevel string) *zap.Logger {
 	default:
 		level = zap.InfoLevel
 	}
-
+	return level
+}
+func initLogger(loglevel string) *zap.Logger {
+	level := selectZapLevel(loglevel)
 	encoderCfg := zap.NewProductionEncoderConfig()
-	logger := zap.New(zapcore.NewCore(
+	logger = zap.New(zapcore.NewCore(
 		zapcore.NewJSONEncoder(encoderCfg),
 		zapcore.Lock(os.Stdout),
 		atom,
@@ -61,8 +66,9 @@ type Miner struct {
 	MuxNums                         int
 	PollDelay, NonceTraverseTimeout int64
 
-	WebEnable bool
-	WebListen string
+	WebEnable      bool
+	WebListen      string
+	AutoProgramBit bool
 
 	LogLevel    string
 	currentAlgo string
@@ -93,8 +99,11 @@ func getMinerByName(pool *types.Pool) (mining.Miner, clients.Client, error) {
 //Reload the main miner
 func (m *Miner) Reload() {
 	m.driver.Stop()
-
+	log.Print("Reloading miner")
+	loglvl := selectZapLevel(m.LogLevel)
+	atom.SetLevel(loglvl)
 	for _, cli := range m.clients {
+		log.Print("Stopping pool:", cli.GetPoolStats().PoolAddr)
 		cli.Stop()
 	}
 	m.clients = make([]clients.Client, len(m.Pools))
@@ -116,16 +125,14 @@ func (m *Miner) Reload() {
 		// m.miners[i] = &miner
 	}
 
-	logger := initLogger(m.LogLevel)
-
 	driverArgs := &mining.MinerArgs{}
 	driverArgs.FPGADevice = m.DevPath
 	driverArgs.MuxNums = m.MuxNums
 	driverArgs.PollDelay = time.Duration(m.PollDelay)
+	driverArgs.AutoProgramBit = m.AutoProgramBit
 	if m.NonceTraverseTimeout != 0 {
 		driverArgs.NonceTraverseTimeout = time.Duration(m.NonceTraverseTimeout)
 	}
-	driverArgs.Logger = logger
 
 	switch m.Driver {
 	case "thyroid":
@@ -135,7 +142,7 @@ func (m *Miner) Reload() {
 	m.driver.SetClient(m.clients[m.activeIdx])
 	if prevAlgo != m.currentAlgo {
 		prevAlgo = m.currentAlgo
-		go m.driver.ProgramBitstream("")
+		go m.driver.ProgramBitstream("", m.AutoProgramBit)
 	}
 
 	m.driver.Start()
@@ -150,7 +157,6 @@ func (m *Miner) MinerMain() {
 	m.miners = make([]mining.Miner, len(m.Pools))
 
 	logger := initLogger(m.LogLevel)
-	// diffMultiplier := 1.0
 
 	driverArgs := &mining.MinerArgs{}
 	driverArgs.FPGADevice = m.DevPath
@@ -191,7 +197,7 @@ func (m *Miner) MinerMain() {
 	case "odocrypt":
 		// let driver manage odo bit
 	default:
-		go m.driver.ProgramBitstream("")
+		go m.driver.ProgramBitstream("", m.AutoProgramBit)
 	}
 	m.driver.Start()
 
@@ -199,7 +205,6 @@ func (m *Miner) MinerMain() {
 	s.RegisterCodec(json.NewCodec(), "application/json")
 	s.RegisterCodec(json.NewCodec(), "application/json;charset=UTF-8")
 	s.RegisterService(m, "miner")
-	// s.RegisterService(m.driver, "driver")
 	r := mux.NewRouter()
 	r.Handle("/rpc", s)
 
@@ -286,7 +291,7 @@ func (m *Miner) MinerCtrl(w http.ResponseWriter, r *http.Request) {
 	cmd := cmds[0]
 	switch cmd {
 	case "programbitstream":
-		err := m.driver.ProgramBitstream("")
+		err := m.driver.ProgramBitstream("", true)
 		log.Print(err)
 		if err != nil {
 			w.WriteHeader(http.StatusOK)
