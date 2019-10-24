@@ -48,25 +48,23 @@ type Thyroid struct {
 	blockTimeField    []byte
 
 	Client                          clients.Client
-	AutoProgramBit                  bool
 	PollDelay, NonceTraverseTimeout time.Duration
 	logger                          *zap.Logger
 	port                            io.ReadWriteCloser
 	nonceChan                       chan SingleNonce
 
-	writeReadNonceMutex *sync.Mutex
-	workCacheLock       *sync.RWMutex
-	readNoncePacket     []byte
-	boardID             int
-	boardJobID          uint8
-	chanSlot            map[int]chan bool
-	workCache           map[uint8]MiningWork
-	nonceStats          map[int]uint64
-	prevEpochEnd        time.Time
-	prevEpochNonceNum   uint64
-	hr                  *statistics.HashRate
-	stats               types.HardwareStats
-	feedDog             chan bool
+	workCacheLock     *sync.RWMutex
+	readNoncePacket   []byte
+	boardID           int
+	boardJobID        uint8
+	chanSlot          map[int]chan bool
+	workCache         map[uint8]MiningWork
+	nonceStats        map[int]uint64
+	prevEpochEnd      time.Time
+	prevEpochNonceNum uint64
+	hr                *statistics.HashRate
+	stats             types.HardwareStats
+	feedDog           chan bool
 }
 
 func NewThyroid(args mining.MinerArgs) (drv Driver) {
@@ -123,7 +121,6 @@ func (thy *Thyroid) Init(args interface{}) {
 
 	argsn := args.(mining.MinerArgs)
 	thy.FPGADevice = argsn.FPGADevice
-	thy.AutoProgramBit = argsn.AutoProgramBit
 	thy.PollDelay = argsn.PollDelay
 	thy.NonceTraverseTimeout = argsn.NonceTraverseTimeout
 	thy.muxNums = argsn.MuxNums
@@ -138,7 +135,6 @@ func (thy *Thyroid) Init(args interface{}) {
 	thy.wronghashCounter = 0
 	thy.boardID = 0
 	thy.boardJobID = 0
-	thy.writeReadNonceMutex = &sync.Mutex{}
 	thy.workCacheLock = &sync.RWMutex{}
 	thy.chanSlot = make(map[int]chan bool)
 	thy.nonceChan = make(chan SingleNonce, 100)
@@ -147,6 +143,7 @@ func (thy *Thyroid) Init(args interface{}) {
 	thy.prevEpochEnd = time.Now()
 	thy.prevEpochNonceNum = 0
 	thy.hr = &statistics.HashRate{}
+	thy.blockTimeField = []byte{}
 }
 
 const (
@@ -199,13 +196,8 @@ func getTempeVolt() (temp, voltage string, err error) {
 	return
 }
 
-func (thy *Thyroid) ProgramBitstream(bitstreamFilePath string, enabled bool) (err error) {
+func (thy *Thyroid) ProgramBitstream(bitstreamFilePath string) (err error) {
 	var bitstreamName string
-	if !enabled {
-		log.Printf("program bit disabled")
-		return nil
-	}
-
 	if isOpenocdRunning() {
 		log.Printf("openocd running")
 		return nil
@@ -331,7 +323,7 @@ func (thy *Thyroid) createWork() {
 			ts = ts - ts%(10*24*60*60)
 			if ts != odoTs {
 				odoTs = ts
-				thy.ProgramBitstream("", thy.AutoProgramBit)
+				thy.ProgramBitstream("")
 			}
 		default:
 		}
@@ -559,57 +551,45 @@ func (thy *Thyroid) processNonce() {
 func (thy *Thyroid) singleMinerOnce(boardID int, cleanJob, timeout bool) {
 	var work *MiningWork
 	var continueMining bool
-	thy.selectBoard(boardID)
+	// thy.selectBoard(boardID)
 	time.Sleep(time.Millisecond * thy.PollDelay)
 	thy.port.Write(thy.readNoncePacket)
 
-	if cleanJob || timeout {
-		select {
-		case work, continueMining = <-thy.miningWorkChannel:
-		default:
-			thy.logger.Debug("Work", zap.String("Stat", "No work ready, continuing"))
-			return
-		}
-		if !continueMining {
-			thy.logger.Debug("Work",
-				zap.String("Stat", "Halting miner"),
-			)
-		}
-
-		thy.boardJobID++
-		if thy.boardJobID == 0 {
-			thy.boardJobID = 1
-		}
-		var backupWork MiningWork
-		copier.Copy(&backupWork, work)
-		thy.workCacheLock.Lock()
-		if cleanJob {
-			thy.workCache = make(map[uint8]MiningWork)
-		}
-		thy.workCache[thy.boardJobID] = backupWork // cache valid works
-		thy.workCacheLock.Unlock()
-		headerPacket := thy.MiningFuncs[thy.Client.AlgoName()].ConstructHeaderPackets(work.Header, thy.boardJobID)
-
-		thy.logger.Debug("Write Packet",
-			zap.Int("BoardID", boardID),
-			zap.Uint8("jobID", thy.boardJobID),
-			zap.Bool("CleanJob", cleanJob),
-			zap.Bool("Timeout", timeout),
-			zap.String("Header", fmt.Sprintf("%02X", work.Header)))
-
-		// log.Printf("packet: \n")
-		// for i := 0; i < len(headerPacket); i += 6 {
-		// 	log.Printf("%02X\n", headerPacket[i:i+6])
-		// }
-		// log.Printf("Trying to write packet to board: %d (cleanJob:%v, timeout:%v), header: %02X\n", boardID, cleanJob, timeout, work.Header)
-		thy.writeReadNonceMutex.Lock()
-		_, err := thy.port.Write(headerPacket)
-		if err != nil {
-			thy.logger.Error("port.Write")
-		}
-		thy.writeStartMine()
-		thy.writeReadNonceMutex.Unlock()
+	select {
+	case work, continueMining = <-thy.miningWorkChannel:
+	default:
+		thy.logger.Debug("Work", zap.String("Stat", "No work ready, continuing"))
+		return
 	}
+	if !continueMining {
+		thy.logger.Debug("Work",
+			zap.String("Stat", "Halting miner"),
+		)
+	}
+
+	thy.boardJobID++
+	if thy.boardJobID == 0 {
+		thy.boardJobID = 1
+	}
+	var backupWork MiningWork
+	copier.Copy(&backupWork, work)
+	thy.workCacheLock.Lock()
+	thy.workCache[thy.boardJobID] = backupWork // cache valid works
+	thy.workCacheLock.Unlock()
+	headerPacket := thy.MiningFuncs[thy.Client.AlgoName()].ConstructHeaderPackets(work.Header, thy.boardJobID)
+
+	thy.logger.Debug("Write Packet",
+		zap.Int("BoardID", boardID),
+		zap.Uint8("jobID", thy.boardJobID),
+		zap.Bool("CleanJob", cleanJob),
+		zap.Bool("Timeout", timeout),
+		zap.String("Header", fmt.Sprintf("%02X", work.Header)))
+
+	_, err := thy.port.Write(headerPacket)
+	if err != nil {
+		thy.logger.Error("port.Write")
+	}
+	thy.writeStartMine()
 }
 
 func (thy *Thyroid) checkAndSubmitJob(nNonce SingleNonce, work MiningWork) (goodNonce bool) {
@@ -695,6 +675,12 @@ func (thy *Thyroid) initPort() {
 	}
 }
 
+func (thy *Thyroid) dispatchJob(cleanJob, timeout bool) {
+	for boardID := 0; boardID < thy.muxNums; boardID++ {
+		thy.singleMinerOnce(boardID, cleanJob, timeout)
+	}
+}
+
 func (thy *Thyroid) minePollVer() {
 	var cleanJob bool
 	var timeout bool
@@ -703,15 +689,13 @@ func (thy *Thyroid) minePollVer() {
 		case <-thy.driverQuit:
 			return
 		case <-thy.cleanJobChannel:
+			thy.workCache = make(map[uint8]MiningWork)
 			cleanJob, timeout = true, false
-			for boardID := 0; boardID < thy.muxNums; boardID++ {
-				thy.singleMinerOnce(boardID, cleanJob, timeout)
-			}
+			thy.dispatchJob(cleanJob, timeout)
+
 		case <-time.After(time.Millisecond * thy.NonceTraverseTimeout):
 			cleanJob, timeout = false, true
-			for boardID := 0; boardID < thy.muxNums; boardID++ {
-				thy.singleMinerOnce(boardID, cleanJob, timeout)
-			}
+			thy.dispatchJob(cleanJob, timeout)
 		}
 	}
 }

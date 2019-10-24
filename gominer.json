@@ -3,7 +3,6 @@
     "device": "/dev/ttyAMA0",
     "muxnum": "1",
     "polldelay": "100",
-    "autoprogrambit": true,
     "noncetimeout": "1000",
     "api-enable": "true",
     "api-listen": "0.0.0.0:8000",

@@ -65,7 +65,6 @@ func init() {
 	viper.SetDefault("polldelay", "60")
 	viper.SetDefault("noncetimeout", "1000")
 	viper.SetDefault("debug", "error")
-	viper.SetDefault("autoprogrambit", true)
 
 	// Viper supports reading from yaml, toml and/or json files. Viper can
 	// search multiple paths. Paths will be searched in the order they are
@@ -93,8 +92,6 @@ func init() {
 		mainminer.PollDelay = viper.GetInt64("polldelay")
 		mainminer.NonceTraverseTimeout = viper.GetInt64("noncetimeout")
 
-		mainminer.AutoProgramBit = viper.GetBool("autoprogrambit")
-
 		mainminer.LogLevel = viper.GetString("debug")
 		mainminer.Reload()
 	})
@@ -120,8 +117,6 @@ func mine() {
 	mainminer.MuxNums = viper.GetInt("muxnum")
 	mainminer.PollDelay = viper.GetInt64("polldelay")
 	mainminer.NonceTraverseTimeout = viper.GetInt64("noncetimeout")
-
-	mainminer.AutoProgramBit = viper.GetBool("autoprogrambit")
 
 	mainminer.LogLevel = viper.GetString("debug")
 	mainminer.MinerMain()

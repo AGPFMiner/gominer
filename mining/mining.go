@@ -34,7 +34,6 @@ type MinerArgs struct {
 	Client               *clients.Client
 	MuxNums              int
 	PollDelay            time.Duration
-	AutoProgramBit       bool
 	NonceTraverseTimeout time.Duration
 	Logger               *zap.Logger
 }

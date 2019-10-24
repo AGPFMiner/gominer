@@ -66,9 +66,8 @@ type Miner struct {
 	MuxNums                         int
 	PollDelay, NonceTraverseTimeout int64
 
-	WebEnable      bool
-	WebListen      string
-	AutoProgramBit bool
+	WebEnable bool
+	WebListen string
 
 	LogLevel    string
 	currentAlgo string
@@ -129,7 +128,6 @@ func (m *Miner) Reload() {
 	driverArgs.FPGADevice = m.DevPath
 	driverArgs.MuxNums = m.MuxNums
 	driverArgs.PollDelay = time.Duration(m.PollDelay)
-	driverArgs.AutoProgramBit = m.AutoProgramBit
 	if m.NonceTraverseTimeout != 0 {
 		driverArgs.NonceTraverseTimeout = time.Duration(m.NonceTraverseTimeout)
 	}
@@ -142,7 +140,6 @@ func (m *Miner) Reload() {
 	m.driver.SetClient(m.clients[m.activeIdx])
 	if prevAlgo != m.currentAlgo {
 		prevAlgo = m.currentAlgo
-		go m.driver.ProgramBitstream("", m.AutoProgramBit)
 	}
 
 	m.driver.Start()
@@ -197,7 +194,7 @@ func (m *Miner) MinerMain() {
 	case "odocrypt":
 		// let driver manage odo bit
 	default:
-		go m.driver.ProgramBitstream("", m.AutoProgramBit)
+		go m.driver.ProgramBitstream("")
 	}
 	m.driver.Start()
 
@@ -291,7 +288,7 @@ func (m *Miner) MinerCtrl(w http.ResponseWriter, r *http.Request) {
 	cmd := cmds[0]
 	switch cmd {
 	case "programbitstream":
-		err := m.driver.ProgramBitstream("", true)
+		err := m.driver.ProgramBitstream("")
 		log.Print(err)
 		if err != nil {
 			w.WriteHeader(http.StatusOK)

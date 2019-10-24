@@ -35,6 +35,6 @@ type Driver interface {
 	GetDriverStats() types.DriverStates
 	RegisterMiningFuncs(string, MiningFuncs)
 	Init(interface{})
-	ProgramBitstream(bitstreamPath string, enabled bool) (err error)
+	ProgramBitstream(bitstreamPath string) (err error)
 	SetClient(clients.Client)
 }
