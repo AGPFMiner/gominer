@@ -197,7 +197,10 @@ func getTempeVolt() (temp, voltage string, err error) {
 }
 
 func (thy *Thyroid) ProgramBitstream(bitstreamFilePath string) (err error) {
-	return nil
+	// disable auto program for multicard devs
+	if thy.muxNums > 1 {
+		return nil
+	}
 
 	var bitstreamName string
 	if isOpenocdRunning() {
