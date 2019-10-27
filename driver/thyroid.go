@@ -55,8 +55,8 @@ type Thyroid struct {
 
 	workCacheLock     *sync.RWMutex
 	readNoncePacket   []byte
-	boardID           int
 	boardJobID        uint8
+	jobBoardIDMap     map[uint8]int
 	chanSlot          map[int]chan bool
 	workCache         map[uint8]MiningWork
 	nonceStats        map[int]uint64
@@ -133,8 +133,8 @@ func (thy *Thyroid) Init(args interface{}) {
 	thy.shareCounter = 0
 	thy.goldennonceCounter = 0
 	thy.wronghashCounter = 0
-	thy.boardID = 0
 	thy.boardJobID = 0
+	thy.jobBoardIDMap = make(map[uint8]int)
 	thy.workCacheLock = &sync.RWMutex{}
 	thy.chanSlot = make(map[int]chan bool)
 	thy.nonceChan = make(chan SingleNonce, 100)
@@ -197,6 +197,8 @@ func getTempeVolt() (temp, voltage string, err error) {
 }
 
 func (thy *Thyroid) ProgramBitstream(bitstreamFilePath string) (err error) {
+	return nil
+
 	var bitstreamName string
 	if isOpenocdRunning() {
 		log.Printf("openocd running")
@@ -275,11 +277,11 @@ func (thy *Thyroid) Stop() {
 }
 
 func (thy *Thyroid) selectBoard(board int) {
-	thy.boardID = board
 	if thy.muxNums == 1 {
 		return
 	}
-	boardman.SelectConsole(uint8(board + 1))
+	cmd := exec.Command("/bin/sh", "-c", fmt.Sprintf("sudo /home/pi/towc/PI console %d", board+1))
+	cmd.Run()
 }
 
 func (thy *Thyroid) createWork() {
@@ -419,8 +421,8 @@ func (thy *Thyroid) readNonce() {
 				nonceStatsMutex.Lock()
 				thy.nonceStats[board]++
 				nonceStatsMutex.Unlock()
-			}(thy.boardID)
-			thy.logger.Debug("Parsed Nonce", zap.Int("BoardID", thy.boardID), zap.String("SingleNonce", fmt.Sprintf("%02X", singleNonce.nonce)), zap.Uint8("JobID", singleNonce.jobid))
+			}(thy.jobBoardIDMap[singleNonce.jobid])
+			thy.logger.Debug("Parsed Nonce", zap.Int("BoardID", thy.jobBoardIDMap[singleNonce.jobid]), zap.String("SingleNonce", fmt.Sprintf("%02X", singleNonce.nonce)), zap.Uint8("JobID", singleNonce.jobid))
 
 			thy.nonceChan <- singleNonce
 		}
@@ -476,8 +478,8 @@ func (thy *Thyroid) readNonceOdo() {
 				nonceStatsMutex.Lock()
 				thy.nonceStats[board]++
 				nonceStatsMutex.Unlock()
-			}(thy.boardID)
-			thy.logger.Debug("Parsed Nonce", zap.Int("BoardID", thy.boardID), zap.String("SingleNonce", fmt.Sprintf("%02X", singleNonce.nonce)), zap.Uint8("JobID", singleNonce.jobid))
+			}(thy.jobBoardIDMap[singleNonce.jobid])
+			thy.logger.Debug("Parsed Nonce", zap.Int("BoardID", thy.jobBoardIDMap[singleNonce.jobid]), zap.String("SingleNonce", fmt.Sprintf("%02X", singleNonce.nonce)), zap.Uint8("JobID", singleNonce.jobid))
 
 			thy.nonceChan <- singleNonce
 		}
@@ -551,45 +553,49 @@ func (thy *Thyroid) processNonce() {
 func (thy *Thyroid) singleMinerOnce(boardID int, cleanJob, timeout bool) {
 	var work *MiningWork
 	var continueMining bool
-	// thy.selectBoard(boardID)
-	time.Sleep(time.Millisecond * thy.PollDelay)
+	thy.selectBoard(boardID)
+	time.Sleep(time.Millisecond * 1)
+
+	if cleanJob || timeout {
+		select {
+		case work, continueMining = <-thy.miningWorkChannel:
+		default:
+			thy.logger.Debug("Work", zap.String("Stat", "No work ready, continuing"))
+			return
+		}
+		if !continueMining {
+			thy.logger.Debug("Work",
+				zap.String("Stat", "Halting miner"),
+			)
+		}
+
+		thy.boardJobID++
+		if thy.boardJobID == 0 {
+			thy.boardJobID = 1
+		}
+		var backupWork MiningWork
+		copier.Copy(&backupWork, work)
+		thy.workCacheLock.Lock()
+		thy.workCache[thy.boardJobID] = backupWork // cache valid works
+		thy.workCacheLock.Unlock()
+		headerPacket := thy.MiningFuncs[thy.Client.AlgoName()].ConstructHeaderPackets(work.Header, thy.boardJobID)
+
+		thy.logger.Debug("Write Packet",
+			zap.Int("BoardID", boardID),
+			zap.Uint8("jobID", thy.boardJobID),
+			zap.Bool("CleanJob", cleanJob),
+			zap.Bool("Timeout", timeout),
+			zap.String("Header", fmt.Sprintf("%02X", work.Header)))
+
+		_, err := thy.port.Write(headerPacket)
+		if err != nil {
+			thy.logger.Error("port.Write")
+		}
+		thy.jobBoardIDMap[thy.boardJobID] = boardID
+		thy.writeStartMine()
+	}
 	thy.port.Write(thy.readNoncePacket)
-
-	select {
-	case work, continueMining = <-thy.miningWorkChannel:
-	default:
-		thy.logger.Debug("Work", zap.String("Stat", "No work ready, continuing"))
-		return
-	}
-	if !continueMining {
-		thy.logger.Debug("Work",
-			zap.String("Stat", "Halting miner"),
-		)
-	}
-
-	thy.boardJobID++
-	if thy.boardJobID == 0 {
-		thy.boardJobID = 1
-	}
-	var backupWork MiningWork
-	copier.Copy(&backupWork, work)
-	thy.workCacheLock.Lock()
-	thy.workCache[thy.boardJobID] = backupWork // cache valid works
-	thy.workCacheLock.Unlock()
-	headerPacket := thy.MiningFuncs[thy.Client.AlgoName()].ConstructHeaderPackets(work.Header, thy.boardJobID)
-
-	thy.logger.Debug("Write Packet",
-		zap.Int("BoardID", boardID),
-		zap.Uint8("jobID", thy.boardJobID),
-		zap.Bool("CleanJob", cleanJob),
-		zap.Bool("Timeout", timeout),
-		zap.String("Header", fmt.Sprintf("%02X", work.Header)))
-
-	_, err := thy.port.Write(headerPacket)
-	if err != nil {
-		thy.logger.Error("port.Write")
-	}
-	thy.writeStartMine()
+	time.Sleep(time.Millisecond * thy.PollDelay)
 }
 
 func (thy *Thyroid) checkAndSubmitJob(nNonce SingleNonce, work MiningWork) (goodNonce bool) {
@@ -684,6 +690,7 @@ func (thy *Thyroid) dispatchJob(cleanJob, timeout bool) {
 func (thy *Thyroid) minePollVer() {
 	var cleanJob bool
 	var timeout bool
+	var lastRefresh time.Time = time.Now()
 	for {
 		select {
 		case <-thy.driverQuit:
@@ -692,11 +699,16 @@ func (thy *Thyroid) minePollVer() {
 			thy.workCache = make(map[uint8]MiningWork)
 			cleanJob, timeout = true, false
 			thy.dispatchJob(cleanJob, timeout)
-
-		case <-time.After(time.Millisecond * thy.NonceTraverseTimeout):
-			cleanJob, timeout = false, true
+			lastRefresh = time.Now()
+		default:
+			cleanJob, timeout = false, false
+			if time.Now().Sub(lastRefresh) > time.Millisecond*thy.NonceTraverseTimeout {
+				cleanJob, timeout = false, true
+				lastRefresh = time.Now()
+			}
 			thy.dispatchJob(cleanJob, timeout)
 		}
+
 	}
 }
 
