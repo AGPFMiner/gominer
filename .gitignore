@@ -1,4 +1,5 @@
 .vscode/
 cmd/devtools/devtools
 gominer
+gominer-linux-arm-6
 *.log
