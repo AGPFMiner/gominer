@@ -23,6 +23,7 @@ import (
 	"github.com/dynm/gominer/mining"
 	"github.com/dynm/gominer/statistics"
 	"github.com/dynm/gominer/types"
+	"github.com/stianeikeland/go-rpio"
 
 	"github.com/jacobsa/go-serial/serial"
 	"github.com/jinzhu/copier"
@@ -95,7 +96,12 @@ func (thy *Thyroid) GetDriverStats() (stats types.DriverStates) {
 	stats.Hashrate[0], stats.Hashrate[1], stats.Hashrate[2] = oneMin*FourGiga/60, fiveMin*FourGiga/300, oneHour*FourGiga/3600
 	stats.NonceStats = &thy.nonceStats
 	stats.Algo = thy.Client.AlgoName()
-	// stats.Temperature =
+
+	if thy.muxNums > 1 {
+		stats.Temperature, stats.Voltage = "WIP", "WIP"
+		return
+	}
+
 	if thy.stats != types.Programming || !isOpenocdRunning() {
 		stats.Temperature, stats.Voltage, _ = getTempeVolt()
 	} else {
@@ -124,6 +130,12 @@ func (thy *Thyroid) Init(args interface{}) {
 	thy.PollDelay = argsn.PollDelay
 	thy.NonceTraverseTimeout = argsn.NonceTraverseTimeout
 	thy.muxNums = argsn.MuxNums
+	if thy.muxNums > 1 {
+		err := rpio.Open()
+		if err != nil {
+			log.Println("Cannot open GPIO")
+		}
+	}
 	if thy.logger == nil {
 		thy.logger = argsn.Logger
 	}
@@ -197,7 +209,10 @@ func getTempeVolt() (temp, voltage string, err error) {
 }
 
 func (thy *Thyroid) ProgramBitstream(bitstreamFilePath string) (err error) {
-	return nil
+	//multi board dev manage bit by other procress currently
+	if thy.muxNums > 1 {
+		return nil
+	}
 
 	var bitstreamName string
 	if isOpenocdRunning() {
@@ -280,8 +295,9 @@ func (thy *Thyroid) selectBoard(board int) {
 	if thy.muxNums == 1 {
 		return
 	}
-	cmd := exec.Command("/bin/sh", "-c", fmt.Sprintf("sudo /home/pi/towc/PI console %d", board+1))
-	cmd.Run()
+	// cmd := exec.Command("/bin/sh", "-c", fmt.Sprintf("sudo /home/pi/towc/PI console %d", board+1))
+	// cmd.Run()
+	boardman.SelectConsole(uint8(board + 1))
 }
 
 func (thy *Thyroid) createWork() {
@@ -550,13 +566,23 @@ func (thy *Thyroid) processNonce() {
 	}
 }
 
+var measuredTime time.Time
+
 func (thy *Thyroid) singleMinerOnce(boardID int, cleanJob, timeout bool) {
 	var work *MiningWork
 	var continueMining bool
-	thy.selectBoard(boardID)
-	time.Sleep(time.Millisecond * 1)
+	if thy.muxNums > 1 {
+		measuredTime = time.Now()
+		thy.selectBoard(boardID)
+		time.Sleep(time.Millisecond * 10)
+		thy.logger.Debug("Execution", zap.Duration("selectBoard", time.Since(measuredTime)))
+	}
 
+	thy.port.Write(thy.readNoncePacket)
+
+	//this clause consumes about 9ms
 	if cleanJob || timeout {
+		measuredTime = time.Now()
 		select {
 		case work, continueMining = <-thy.miningWorkChannel:
 		default:
@@ -568,17 +594,24 @@ func (thy *Thyroid) singleMinerOnce(boardID int, cleanJob, timeout bool) {
 				zap.String("Stat", "Halting miner"),
 			)
 		}
+		thy.logger.Debug("Execution", zap.Duration("fetchwork", time.Since(measuredTime)))
 
 		thy.boardJobID++
 		if thy.boardJobID == 0 {
 			thy.boardJobID = 1
 		}
+
+		measuredTime = time.Now()
 		var backupWork MiningWork
 		copier.Copy(&backupWork, work)
 		thy.workCacheLock.Lock()
 		thy.workCache[thy.boardJobID] = backupWork // cache valid works
 		thy.workCacheLock.Unlock()
+		thy.logger.Debug("Execution", zap.Duration("cacheWork", time.Since(measuredTime)))
+
+		measuredTime = time.Now()
 		headerPacket := thy.MiningFuncs[thy.Client.AlgoName()].ConstructHeaderPackets(work.Header, thy.boardJobID)
+		thy.logger.Debug("Execution", zap.Duration("constructPacket", time.Since(measuredTime)))
 
 		thy.logger.Debug("Write Packet",
 			zap.Int("BoardID", boardID),
@@ -587,15 +620,21 @@ func (thy *Thyroid) singleMinerOnce(boardID int, cleanJob, timeout bool) {
 			zap.Bool("Timeout", timeout),
 			zap.String("Header", fmt.Sprintf("%02X", work.Header)))
 
+		measuredTime = time.Now()
 		_, err := thy.port.Write(headerPacket)
 		if err != nil {
 			thy.logger.Error("port.Write")
 		}
+		thy.logger.Debug("Execution", zap.Duration("writeHeader", time.Since(measuredTime)))
+
 		thy.jobBoardIDMap[thy.boardJobID] = boardID
+		measuredTime = time.Now()
 		thy.writeStartMine()
+		thy.logger.Debug("Execution", zap.Duration("writeTrigger", time.Since(measuredTime)))
 	}
-	thy.port.Write(thy.readNoncePacket)
+	// if !cleanJob {
 	time.Sleep(time.Millisecond * thy.PollDelay)
+	// }
 }
 
 func (thy *Thyroid) checkAndSubmitJob(nNonce SingleNonce, work MiningWork) (goodNonce bool) {
@@ -644,11 +683,11 @@ func (thy *Thyroid) checkAndSubmitJob(nNonce SingleNonce, work MiningWork) (good
 		atomic.StoreUint64(&thy.wronghashCounter, 0)
 		// thy.wronghashCounter = 0
 	} else {
-		thy.logger.Debug("SubmitJob",
+		thy.logger.Warn("SubmitJob",
 			zap.String("WorkHeader", fmt.Sprintf("%02X", workHeader)),
 			zap.String("BlockHash", fmt.Sprintf("%02X", blockhash)),
 		)
-		thy.logger.Info("SubmitJob", zap.String("Stat", "Wrong Hash"))
+		thy.logger.Warn("SubmitJob", zap.String("Stat", "Wrong Hash"))
 		atomic.AddUint64(&thy.wronghashCounter, 1)
 		// thy.wronghashCounter++
 	}

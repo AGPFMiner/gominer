@@ -1,8 +1,6 @@
 package boardman
 
 import (
-	"log"
-
 	rpio "github.com/stianeikeland/go-rpio"
 )
 
@@ -28,27 +26,29 @@ var (
 )
 
 func SelectConsole(boardID uint8) {
-	selectPin(&ConsolePins, gray[boardID])
+	selectPin(ConsolePins, gray[boardID])
 }
 
 func SelectJTAG(boardID uint8) {
-	selectPin(&JTAGPins, boardID)
+	selectPin(JTAGPins, boardID)
 }
 
 func SelectReset(boardID uint8) {
-	selectPin(&ResetPins, boardID)
-	selectPin(&ResetPins, 0) // release pressed reset
+	selectPin(ResetPins, boardID)
+	selectPin(ResetPins, 0) // release pressed reset
 }
 
-func selectPin(pins *[4]rpio.Pin, boardID uint8) {
-	err := rpio.Open()
-	if err != nil {
-		log.Println("Cannot open GPIO")
-	}
-	defer rpio.Close()
-
-	for i, pin := range *pins {
+func selectPin(pins [4]rpio.Pin, boardID uint8) {
+	// err := rpio.Open()
+	// if err != nil {
+	// 	log.Println("Cannot open GPIO")
+	// }
+	// defer rpio.Close()
+	for _, pin := range pins {
 		pin.Output()
+	}
+
+	for i, pin := range pins {
 		id := (boardID >> uint(i) & 1)
 		// log.Println("Pin:", pin, "ID:", id)
 		if id == 1 {
@@ -57,4 +57,10 @@ func selectPin(pins *[4]rpio.Pin, boardID uint8) {
 			pin.Low()
 		}
 	}
+	// log.Printf("Pin state: %d:%d, %d:%d, %d:%d, %d:%d\n",
+	// 	pins[0], pins[0].Read(),
+	// 	pins[1], pins[1].Read(),
+	// 	pins[2], pins[2].Read(),
+	// 	pins[3], pins[3].Read(),
+	// )
 }
