@@ -12,6 +12,9 @@ package main
 
 import (
 	"fmt"
+	"log"
+	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/dynm/gominer/miner"
@@ -19,6 +22,7 @@ import (
 
 	"github.com/fsnotify/fsnotify"
 	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
 )
 
@@ -60,6 +64,7 @@ func init() {
 	// flags := mainCmd.Flags()
 
 	viper.SetDefault("device", "/dev/ttyAMA0")
+	viper.SetDefault("baudrate", "115200")
 	viper.SetDefault("driver", "thyroid")
 	viper.SetDefault("muxnum", "1")
 	viper.SetDefault("polldelay", "60")
@@ -69,10 +74,21 @@ func init() {
 	// Viper supports reading from yaml, toml and/or json files. Viper can
 	// search multiple paths. Paths will be searched in the order they are
 	// provided. Searches stopped once Config File found.
+	pflag.String("cfg", "gominer.json", "config file path")
+	pflag.Parse()
+	viper.BindPFlags(pflag.CommandLine)
+	fullcfgname := viper.GetString("cfg")
 
-	viper.SetConfigName("gominer")          // name of config file (without extension)
-	viper.AddConfigPath("/opt/scripta/etc") // path to look for the config file in
-	viper.AddConfigPath(".")                // more path to look for the config files
+	log.Print("Config file: ", fullcfgname)
+	cfgname := strings.TrimSuffix(fullcfgname, filepath.Ext(fullcfgname))
+	if fullcfgname != "gominer.json" {
+		viper.SetConfigFile(fullcfgname)
+
+	} else {
+		viper.SetConfigName(cfgname)            // name of config file (without extension)
+		viper.AddConfigPath(".")                // more path to look for the config files
+		viper.AddConfigPath("/opt/scripta/etc") // path to look for the config file in
+	}
 
 	err := viper.ReadInConfig()
 	if err != nil {
@@ -87,6 +103,7 @@ func init() {
 		mainminer.Pools = pools
 
 		mainminer.DevPath = viper.GetString("device")
+		mainminer.BaudRate = viper.GetUint("baudrate")
 		mainminer.Driver = viper.GetString("driver")
 		mainminer.MuxNums = viper.GetInt("muxnum")
 		mainminer.PollDelay = viper.GetInt64("polldelay")
@@ -113,6 +130,7 @@ func mine() {
 	mainminer.Pools = pools
 
 	mainminer.DevPath = viper.GetString("device")
+	mainminer.BaudRate = viper.GetUint("baudrate")
 	mainminer.Driver = viper.GetString("driver")
 	mainminer.MuxNums = viper.GetInt("muxnum")
 	mainminer.PollDelay = viper.GetInt64("polldelay")

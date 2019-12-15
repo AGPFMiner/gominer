@@ -31,6 +31,7 @@ type HashRateReport struct {
 
 type MinerArgs struct {
 	FPGADevice           string
+	BaudRate             uint
 	Client               *clients.Client
 	MuxNums              int
 	PollDelay            time.Duration

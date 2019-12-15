@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/dynm/gominer/algorithms/ckb"
 	"github.com/dynm/gominer/algorithms/odocrypt"
 	"github.com/dynm/gominer/algorithms/skunk"
 	"github.com/dynm/gominer/algorithms/veo"
@@ -63,6 +64,7 @@ type Miner struct {
 	Pools []types.Pool
 
 	Driver, DevPath                 string
+	BaudRate                        uint
 	MuxNums                         int
 	PollDelay, NonceTraverseTimeout int64
 
@@ -80,6 +82,8 @@ type Miner struct {
 
 func getMinerByName(pool *types.Pool) (mining.Miner, clients.Client, error) {
 	switch pool.Algo {
+	case "ckb":
+		return &ckb.Miner{}, ckb.NewClient(pool), nil
 	case "odocrypt":
 		return &odocrypt.Miner{}, odocrypt.NewClient(pool), nil
 	case "veo":
@@ -126,6 +130,7 @@ func (m *Miner) Reload() {
 
 	driverArgs := &mining.MinerArgs{}
 	driverArgs.FPGADevice = m.DevPath
+	driverArgs.BaudRate = m.BaudRate
 	driverArgs.MuxNums = m.MuxNums
 	driverArgs.PollDelay = time.Duration(m.PollDelay)
 	if m.NonceTraverseTimeout != 0 {
@@ -157,6 +162,7 @@ func (m *Miner) MinerMain() {
 
 	driverArgs := &mining.MinerArgs{}
 	driverArgs.FPGADevice = m.DevPath
+	driverArgs.BaudRate = m.BaudRate
 	driverArgs.MuxNums = m.MuxNums
 	driverArgs.PollDelay = time.Duration(m.PollDelay)
 	if m.NonceTraverseTimeout != 0 {
@@ -167,6 +173,8 @@ func (m *Miner) MinerMain() {
 	switch m.Driver {
 	case "thyroid":
 		m.driver = driver.NewThyroid(*driverArgs)
+	case "thyroidUSB":
+		// m.driver = driver.NewThyroidUSB(*driverArgs)
 	}
 
 	for i, pool := range m.Pools {
@@ -183,6 +191,7 @@ func (m *Miner) MinerMain() {
 		// m.miners[i] = &miner
 	}
 
+	m.driver.RegisterMiningFuncs("ckb", &ckb.MiningFuncs{})
 	m.driver.RegisterMiningFuncs("odocrypt", &odocrypt.MiningFuncs{})
 	m.driver.RegisterMiningFuncs("veo", &veo.MiningFuncs{})
 	m.driver.RegisterMiningFuncs("skunk", &skunk.MiningFuncs{})

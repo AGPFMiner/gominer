@@ -38,7 +38,6 @@ type Target [HashSize]byte
 type stratumJob struct {
 	JobID string
 	bHash string
-	// extraNonce stratum.ExtraNonce2
 	nonce string
 }
 

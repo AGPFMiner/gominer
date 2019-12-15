@@ -217,7 +217,7 @@ func (c *Client) Listen() {
 			return
 		}
 		r := response{}
-		// log.Print("[Stratum <---]", rawmessage)
+		log.Print("[Stratum <---]", rawmessage)
 		err = json.Unmarshal([]byte(rawmessage), &r)
 		// log.Println(err)
 		// spew.Dump(r)
@@ -274,7 +274,7 @@ func (c *Client) Call(serviceMethod interface{}, args interface{}) (reply interf
 
 	rawmsg = append(rawmsg, []byte("\n")...)
 	_, err = c.socket.Write(rawmsg)
-	// log.Print("[Stratum --->]", string(rawmsg), "err:", err)
+	log.Print("[Stratum --->]", string(rawmsg), "err:", err)
 	if err != nil {
 		c.poolstates = types.Sick
 		log.Print("Socket Write Error:", err)

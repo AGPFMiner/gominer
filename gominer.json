@@ -1,6 +1,7 @@
 {
     "driver": "thyroid",
-    "device": "/dev/ttyAMA0",
+    "baudrate": "115200",
+    "device": "@qq.com:80",
     "muxnum": "1",
     "polldelay": "100",
     "noncetimeout": "1000",
@@ -12,7 +13,7 @@
             "algo": "veo",
             "user": "BJP1y2bNVefilvrxu2YjK0PSRPcqlWWmFfECXlmryKZ9uhXzxxpfQxPBv2hZeA6vpy8MIjiAkHqD7Zo3bdFCs6o=.x86",
             "pass": "x",
-            "active": "true"
+            "active": "false"
         },
         {
             "url": "stratum+tcp://skunk.hk.nicehash.com:3362",
@@ -27,6 +28,14 @@
             "pass": "x",
             "algo": "odocrypt",
             "active": "false"
+        },
+        {
+            "url": "stratum+tcp://ckb.stratum.hashpool.com:4300",
+            "algo": "ckb",
+            "user": "ckb1qyq8fxuxz49nvatawuqye0fydpm4gulcs6usgyfkrr.1",
+            "pass": "x",
+            "active": true,
+            "priority": "0"
         }
     ]
 }

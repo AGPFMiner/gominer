@@ -5,9 +5,9 @@ import (
 )
 
 var (
-	ConsolePins = [4]rpio.Pin{rpio.Pin(2), rpio.Pin(3), rpio.Pin(4), rpio.Pin(5)}
-	JTAGPins    = [4]rpio.Pin{rpio.Pin(6), rpio.Pin(24), rpio.Pin(25), rpio.Pin(26)}
-	ResetPins   = [4]rpio.Pin{rpio.Pin(18), rpio.Pin(19), rpio.Pin(12), rpio.Pin(13)}
+	ConsolePins = [4]rpio.Pin{rpio.Pin(5), rpio.Pin(4), rpio.Pin(3), rpio.Pin(2)}
+	JTAGPins    = [4]rpio.Pin{rpio.Pin(26), rpio.Pin(25), rpio.Pin(24), rpio.Pin(6)}
+	ResetPins   = [4]rpio.Pin{rpio.Pin(13), rpio.Pin(12), rpio.Pin(19), rpio.Pin(18)}
 )
 
 var (
@@ -49,7 +49,7 @@ func selectPin(pins [4]rpio.Pin, boardID uint8) {
 	}
 
 	for i, pin := range pins {
-		id := (boardID >> uint(i) & 1)
+		id := (boardID >> uint(3-i) & 1)
 		// log.Println("Pin:", pin, "ID:", id)
 		if id == 1 {
 			pin.High()

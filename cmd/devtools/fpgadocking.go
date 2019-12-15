@@ -10,6 +10,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/dynm/gominer/algorithms/ckb"
 	"github.com/dynm/gominer/algorithms/odocrypt"
 	"github.com/dynm/gominer/clients"
 	"github.com/dynm/gominer/types"
@@ -124,8 +125,15 @@ var odoPool = &types.Pool{
 	Algo: "odocrypt",
 }
 
+var ckbPool = &types.Pool{
+	URL:  "stratum+tcp://ckb.sparkpool.com:8888",
+	User: "ckb1qyqgvy2kra5csw5mzy5203mkzdtr3de7qkcsrddj2u.pi-a2",
+	Pass: "x",
+	Algo: "ckb",
+}
+
 func (d *Docking) initPool() {
-	d.Client = odocrypt.NewClient(odoPool)
+	d.Client = ckb.NewClient(ckbPool)
 	go d.Client.Start()
 }
 
