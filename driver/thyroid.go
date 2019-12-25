@@ -23,6 +23,7 @@ import (
 	"github.com/dynm/gominer/mining"
 	"github.com/dynm/gominer/statistics"
 	"github.com/dynm/gominer/types"
+	"github.com/spf13/viper"
 	"github.com/stianeikeland/go-rpio"
 
 	"github.com/jacobsa/go-serial/serial"
@@ -48,6 +49,7 @@ type Thyroid struct {
 	cleanJobChannel   chan bool
 	muxNums           int
 	blockTimeField    []byte
+	skippedSlots      map[int]bool
 
 	Client                          clients.Client
 	PollDelay, NonceTraverseTimeout time.Duration
@@ -133,6 +135,7 @@ func (thy *Thyroid) Init(args interface{}) {
 	thy.NonceTraverseTimeout = argsn.NonceTraverseTimeout
 	thy.muxNums = argsn.MuxNums
 	if thy.muxNums > 1 {
+		log.Println("Opening GPIO")
 		err := rpio.Open()
 		if err != nil {
 			log.Println("Cannot open GPIO")
@@ -158,6 +161,12 @@ func (thy *Thyroid) Init(args interface{}) {
 	thy.prevEpochNonceNum = 0
 	thy.hr = &statistics.HashRate{}
 	thy.blockTimeField = []byte{}
+	thy.skippedSlots = make(map[int]bool)
+	skipslots := viper.GetIntSlice("skipslots")
+	for _, slot := range skipslots {
+		thy.skippedSlots[slot] = true
+	}
+
 }
 
 const (
@@ -328,6 +337,8 @@ func (thy *Thyroid) createWork() {
 	var difficulty float64
 	var job interface{}
 	var err error
+	testFetchedHeader := false
+	testMode := viper.GetBool("test")
 
 	var odoTs uint32
 	for {
@@ -335,7 +346,15 @@ func (thy *Thyroid) createWork() {
 		case <-thy.driverQuit:
 			return
 		default:
-			target, difficulty, header, _, job, err = thy.Client.GetHeaderForWork()
+			if !(testMode && testFetchedHeader) {
+				thy.logger.Debug("createWork", zap.String("Header Source", "Stratum"))
+				target, difficulty, header, _, job, err = thy.Client.GetHeaderForWork()
+				if testMode && err == nil {
+					testFetchedHeader = true
+				}
+			} else {
+				thy.logger.Debug("createWork", zap.String("Header Source", "Local test mode"))
+			}
 		}
 		if err != nil {
 			thy.logger.Warn("ERROR fetching work", zap.Error(err))
@@ -359,18 +378,21 @@ func (thy *Thyroid) createWork() {
 	}
 }
 
+var (
+	startMine, _ = hex.DecodeString(startMineCtrlAddr + pullLow + startMineCtrlAddr + pullHigh)
+	initcnt, _   = hex.DecodeString(initCnt0 + pullLow + initCnt1 + pullLow)
+	junkChunk, _ = hex.DecodeString("061c" + "aabbccdd")
+)
+
 func (thy *Thyroid) writeInitCnt() {
-	startMine, _ := hex.DecodeString(initCnt0 + pullLow + initCnt1 + pullLow)
-	thy.port.Write(startMine)
+	thy.port.Write(initcnt)
 }
 
 func (thy *Thyroid) write1cSomeJunks() {
-	junkChunk, _ := hex.DecodeString("061c" + "aabbccdd")
 	thy.port.Write(junkChunk)
 }
 
 func (thy *Thyroid) writeStartMine() {
-	startMine, _ := hex.DecodeString(startMineCtrlAddr + pullLow + startMineCtrlAddr + pullHigh)
 	thy.port.Write(startMine)
 }
 
@@ -582,19 +604,32 @@ func (thy *Thyroid) processNonce() {
 }
 
 var measuredTime time.Time
+var polldelayMeasuredTime time.Time
 
 func (thy *Thyroid) singleMinerOnce(boardID int, cleanJob, timeout bool) {
+	cleanJob, timeout = true, true //for debug
 	var work *MiningWork
 	var continueMining bool
+	polldelayMeasuredTime = time.Now()
 	if thy.muxNums > 1 {
 		measuredTime = time.Now()
 		thy.selectBoard(boardID)
 		time.Sleep(time.Microsecond * 1)
 		thy.logger.Debug("Execution", zap.Duration("selectBoard", time.Since(measuredTime)))
 	}
+	/*
+		{
+			1:true //boardid=0
+		}
+	*/
+	if thy.skippedSlots[boardID+1] {
+		thy.logger.Debug("Work", zap.Int("SkippedSlot", boardID+1))
+		return
+	}
 
 	if !cleanJob && !timeout {
 		thy.port.Write(thy.readNoncePacket)
+		thy.logger.Debug("Work", zap.String("Stat", "Write readnonce only"))
 	}
 
 	//this clause consumes about ?ms
@@ -641,19 +676,19 @@ func (thy *Thyroid) singleMinerOnce(boardID int, cleanJob, timeout bool) {
 		measuredTime = time.Now()
 		thy.logger.Debug("Execution", zap.Duration("constructPacket", time.Since(constructStart)))
 
-		_, err := thy.port.Write(append(thy.readNoncePacket, headerPacket...))
+		_, err := thy.port.Write(append(thy.readNoncePacket, append(headerPacket, startMine...)...))
 		if err != nil {
 			thy.logger.Error("port.Write")
 		}
-		thy.logger.Debug("Execution", zap.Duration("writeHeader", time.Since(measuredTime)))
+		thy.logger.Debug("Execution", zap.Duration("writeHeaderAndTrigger", time.Since(measuredTime)))
 
 		thy.jobBoardIDMap[thy.boardJobID] = boardID
-		measuredTime = time.Now()
-		thy.writeStartMine()
-		thy.logger.Debug("Execution", zap.Duration("writeTrigger", time.Since(measuredTime)))
 	}
 	// if !cleanJob {
-	time.Sleep(time.Millisecond * thy.PollDelay)
+	instrConsume := time.Since(polldelayMeasuredTime)
+	if instrConsume < thy.PollDelay*time.Millisecond {
+		time.Sleep(time.Millisecond*thy.PollDelay - instrConsume)
+	}
 	// }
 }
 

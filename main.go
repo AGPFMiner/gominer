@@ -70,11 +70,17 @@ func init() {
 	viper.SetDefault("polldelay", "60")
 	viper.SetDefault("noncetimeout", "1000")
 	viper.SetDefault("debug", "error")
+	viper.SetDefault("uartio", []int{5, 4, 3, 2})
+	viper.SetDefault("jtagio", []int{26, 25, 24, 6})
+	viper.SetDefault("resetio", []int{13, 12, 19, 18})
+	viper.SetDefault("graymapping", []int{0, 1, 3, 2, 6, 7, 5, 4, 12, 8})
+	viper.SetDefault("skipslots", []int{})
 
 	// Viper supports reading from yaml, toml and/or json files. Viper can
 	// search multiple paths. Paths will be searched in the order they are
 	// provided. Searches stopped once Config File found.
 	pflag.String("cfg", "gominer.json", "config file path")
+	pflag.Bool("test", false, "test mode, build test header packet")
 	pflag.Parse()
 	viper.BindPFlags(pflag.CommandLine)
 	fullcfgname := viper.GetString("cfg")
