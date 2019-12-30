@@ -140,6 +140,7 @@ func (thy *Thyroid) Init(args interface{}) {
 		if err != nil {
 			log.Println("Cannot open GPIO")
 		}
+		boardman.InitConsoleLevel()
 	}
 	if thy.logger == nil {
 		thy.logger = argsn.Logger

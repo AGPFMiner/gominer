@@ -21,11 +21,27 @@ var (
 // BIN9INGRAY = 8
 )
 
+var slot []int
+var ConsolePins []int
+
 func SelectConsole(boardID uint8) {
-	gray := viper.GetIntSlice("graymapping")
-	ConsolePins := viper.GetIntSlice("uartio")
-	log.Print("select console")
-	togglePin(ConsolePins, uint8(gray[boardID-1]), uint8(gray[boardID]))
+	rpio.Pin(slot[boardID-1]).Toggle()
+	log.Printf("board: %d, toggled pin: %d", boardID, slot[boardID-1])
+}
+
+func InitConsoleLevel() {
+	slot = viper.GetIntSlice("slot")
+	ConsolePins = viper.GetIntSlice("uartio")
+
+	for _, pin := range ConsolePins {
+		log.Printf("Set pin%d as output\n", pin)
+		rpio.Pin(pin).Output()
+	}
+	rpio.Pin(ConsolePins[0]).Low()  // 6
+	rpio.Pin(ConsolePins[1]).Low()  // 5
+	rpio.Pin(ConsolePins[2]).Low()  // 4
+	rpio.Pin(ConsolePins[3]).High() // 3
+	rpio.Pin(ConsolePins[4]).Low()  // 2
 }
 
 func SelectJTAG(boardID uint8) {
@@ -46,51 +62,19 @@ func selectPin(pins []int, boardID uint8) {
 	// 	log.Println("Cannot open GPIO")
 	// }
 	// defer rpio.Close()
+	gpionums := len(pins)
 	for _, pin := range pins {
 		log.Printf("Set pin%d as output\n", pin)
 		rpio.Pin(pin).Output()
 	}
 
 	for i, pin := range pins {
-		id := (boardID >> uint(3-i) & 1)
+		id := (boardID >> uint(gpionums-1-i) & 1)
 		// log.Println("Pin:", pin, "ID:", id)
 		if id == 1 {
 			rpio.Pin(pin).High()
 		} else {
 			rpio.Pin(pin).Low()
-		}
-	}
-	// log.Printf("Pin state: %d:%d, %d:%d, %d:%d, %d:%d\n",
-	// 	pins[0], pins[0].Read(),
-	// 	pins[1], pins[1].Read(),
-	// 	pins[2], pins[2].Read(),
-	// 	pins[3], pins[3].Read(),
-	// )
-}
-
-func togglePin(pins []int, prevboardID, boardID uint8) {
-	for _, pin := range pins {
-		log.Printf("Set pin%d as output\n", pin)
-		rpio.Pin(pin).Output()
-	}
-
-	if prevboardID == 0 {
-		for i, pin := range pins {
-			id := (prevboardID >> uint(3-i) & 1)
-			if id == 1 {
-				rpio.Pin(pin).High()
-			} else {
-				rpio.Pin(pin).Low()
-			}
-		}
-	}
-
-	masked := prevboardID ^ boardID
-	for i, pin := range pins {
-		id := (masked >> uint(3-i) & 1)
-		// log.Println("Pin:", pin, "ID:", id)
-		if id == 1 {
-			rpio.Pin(pin).Toggle()
 		}
 	}
 }

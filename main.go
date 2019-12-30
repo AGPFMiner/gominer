@@ -73,7 +73,7 @@ func init() {
 	viper.SetDefault("uartio", []int{5, 4, 3, 2})
 	viper.SetDefault("jtagio", []int{26, 25, 24, 6})
 	viper.SetDefault("resetio", []int{13, 12, 19, 18})
-	viper.SetDefault("graymapping", []int{0, 1, 3, 2, 6, 7, 5, 4, 12, 8})
+	viper.SetDefault("slot", []int{})
 	viper.SetDefault("skipslots", []int{})
 
 	// Viper supports reading from yaml, toml and/or json files. Viper can
