@@ -380,7 +380,7 @@ func (thy *Thyroid) createWork() {
 }
 
 var (
-	startMine, _ = hex.DecodeString(startMineCtrlAddr + pullLow + startMineCtrlAddr + pullHigh)
+	startMine, _ = hex.DecodeString(startMineCtrlAddr + pullHigh)
 	initcnt, _   = hex.DecodeString(initCnt0 + pullLow + initCnt1 + pullLow)
 	junkChunk, _ = hex.DecodeString("061c" + "aabbccdd")
 )
@@ -486,44 +486,21 @@ func (thy *Thyroid) readNonceNewProtocol() {
 	nonceStatsMutex := &sync.Mutex{}
 	split := func(data []byte, atEOF bool) (advance int, token []byte, err error) {
 		thy.logger.Debug("UART Data", zap.String("Buffer", fmt.Sprintf("%02X", data)))
-		if len(data) < 8 {
+		if len(data) < 9 {
 			return 0, nil, nil
 		}
 
-		first89 := bytes.IndexByte(data, 0x89)
-
-		leadingzeros := 0
-		for _, b := range data {
-			if b == 0x00 {
-				leadingzeros++
-			} else {
-				break
-			}
-		}
-
-		if bytes.Equal(data[:3], []byte{0x89, 0xab, 0xcd}) {
-			return 8, data[3:], nil
-		} else if leadingzeros > 0 {
-			return leadingzeros, nil, nil
-		} else if first89 > 0 {
-			if len(data[first89:]) > 20 {
-				return first89 + 1, nil, nil
-			}
-			return first89, nil, nil
-		} else {
-			return 1, nil, nil
-		}
-
-		if atEOF {
-			return 0, nil, io.EOF
-		}
-		return 0, nil, nil
+		return 9, data[4:9], nil
+		// return 0, nil, nil
 	}
 	scanner.Split(split)
 	for scanner.Scan() {
 		nonce := scanner.Bytes()
 		var singleNonce SingleNonce
 		singleNonce.jobid = uint8(nonce[0])
+		if singleNonce.jobid == 0 {
+			continue
+		}
 		copy(singleNonce.nonce[4:], stratum.ReverseByteSlice(nonce[1:5]))
 
 		go func(board int) {
@@ -592,9 +569,9 @@ func (thy *Thyroid) processNonce() {
 		case <-thy.driverQuit:
 			return
 		case nNonce := <-thy.nonceChan:
-			thy.workCacheLock.RLock()
+			// thy.workCacheLock.RLock()
 			cachedWork := thy.workCache[nNonce.jobid]
-			thy.workCacheLock.RUnlock()
+			// thy.workCacheLock.RUnlock()
 			thy.feedDog <- true
 			thy.goldennonceCounter++
 			if cachedWork.Header != nil {
@@ -608,7 +585,7 @@ var measuredTime time.Time
 var polldelayMeasuredTime time.Time
 
 func (thy *Thyroid) singleMinerOnce(boardID int, cleanJob, timeout bool) {
-	cleanJob, timeout = true, true //for debug
+	// cleanJob, timeout = false, false //for debug
 	var work *MiningWork
 	var continueMining bool
 	polldelayMeasuredTime = time.Now()
@@ -641,7 +618,7 @@ func (thy *Thyroid) singleMinerOnce(boardID int, cleanJob, timeout bool) {
 		case work, continueMining = <-thy.miningWorkChannel:
 		default:
 			thy.logger.Debug("Work", zap.String("Stat", "No work ready, continuing"))
-			return
+			goto DELAY
 		}
 		if !continueMining {
 			thy.logger.Debug("Work",
@@ -658,9 +635,9 @@ func (thy *Thyroid) singleMinerOnce(boardID int, cleanJob, timeout bool) {
 		measuredTime = time.Now()
 		var backupWork MiningWork
 		copier.Copy(&backupWork, work)
-		thy.workCacheLock.Lock()
+		// thy.workCacheLock.Lock()
 		thy.workCache[thy.boardJobID] = backupWork // cache valid works
-		thy.workCacheLock.Unlock()
+		// thy.workCacheLock.Unlock()
 		thy.logger.Debug("Execution", zap.Duration("cacheWork", time.Since(measuredTime)))
 
 		measuredTime = time.Now()
@@ -677,14 +654,17 @@ func (thy *Thyroid) singleMinerOnce(boardID int, cleanJob, timeout bool) {
 		measuredTime = time.Now()
 		thy.logger.Debug("Execution", zap.Duration("constructPacket", time.Since(constructStart)))
 
+		time.Sleep(time.Microsecond * 100)
 		_, err := thy.port.Write(append(thy.readNoncePacket, append(headerPacket, startMine...)...))
+		time.Sleep(time.Millisecond * 1)
 		if err != nil {
-			thy.logger.Error("port.Write")
+			thy.logger.Error("port.Write", zap.Error(err))
 		}
 		thy.logger.Debug("Execution", zap.Duration("writeHeaderAndTrigger", time.Since(measuredTime)))
 
 		thy.jobBoardIDMap[thy.boardJobID] = boardID
 	}
+DELAY:
 	// if !cleanJob {
 	instrConsume := time.Since(polldelayMeasuredTime)
 	if instrConsume < thy.PollDelay*time.Millisecond {
@@ -778,7 +758,9 @@ func (thy *Thyroid) initPort() {
 
 func (thy *Thyroid) dispatchJob(cleanJob, timeout bool, startOffset int) {
 	for boardID := 0; boardID < thy.muxNums; boardID++ {
-		thy.singleMinerOnce((boardID+startOffset)%thy.muxNums, cleanJob, timeout)
+		fixedBoardID := (boardID + startOffset) % thy.muxNums
+		// log.Printf("dispatch board: %d\n", fixedBoardID)
+		thy.singleMinerOnce(fixedBoardID, cleanJob, timeout)
 	}
 }
 
@@ -798,12 +780,14 @@ func (thy *Thyroid) minePollVer() {
 		case <-thy.cleanJobChannel:
 			thy.workCache = make(map[uint8]MiningWork)
 			cleanJob, timeout = true, false
-			thy.dispatchJob(cleanJob, timeout, boardID+1)
+			thy.dispatchJob(cleanJob, timeout, boardID)
 			for i := range lastRefresh {
 				now := time.Now()
 				lastRefresh[i] = now
 			}
+			continue
 		default:
+			// log.Printf("mineonce board: %d\n", boardID)
 			if time.Now().Sub(lastRefresh[boardID]) > time.Millisecond*thy.NonceTraverseTimeout {
 				cleanJob, timeout = false, true
 				lastRefresh[boardID] = time.Now()
