@@ -140,7 +140,6 @@ func (thy *Thyroid) Init(args interface{}) {
 		if err != nil {
 			log.Println("Cannot open GPIO")
 		}
-		boardman.InitConsoleLevel()
 	}
 	if thy.logger == nil {
 		thy.logger = argsn.Logger
@@ -486,12 +485,20 @@ func (thy *Thyroid) readNonceNewProtocol() {
 	nonceStatsMutex := &sync.Mutex{}
 	split := func(data []byte, atEOF bool) (advance int, token []byte, err error) {
 		thy.logger.Debug("UART Data", zap.String("Buffer", fmt.Sprintf("%02X", data)))
-		if len(data) < 9 {
+		datalen := len(data)
+		if datalen < 8 {
+			return 0, nil, nil
+		}
+		first89abcd := bytes.Index(data, []byte{0x89, 0xab, 0xcd})
+
+		if first89abcd < 0 {
+			return 0, nil, nil
+		}
+		if datalen-first89abcd < 8 {
 			return 0, nil, nil
 		}
 
-		return 9, data[4:9], nil
-		// return 0, nil, nil
+		return first89abcd + 8, data[first89abcd+3 : first89abcd+8], nil
 	}
 	scanner.Split(split)
 	for scanner.Scan() {
