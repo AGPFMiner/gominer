@@ -33,6 +33,7 @@ type Driver interface {
 	Start()
 	Stop()
 	GetDriverStats() types.DriverStates
+	GetDriverStatsMulti() []*types.DriverStates
 	RegisterMiningFuncs(string, MiningFuncs)
 	Init(interface{})
 	ProgramBitstream(bitstreamPath string) (err error)

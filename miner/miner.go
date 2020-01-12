@@ -253,10 +253,14 @@ func (m *Miner) GetHardwareStats(r *http.Request, args *MinerRPCArgs, reply *Dri
 }
 
 func (m *Miner) GetScriptaStatus(w http.ResponseWriter, r *http.Request) {
-	ds := m.driver.GetDriverStats()
-
 	var devsInfo []*types.DriverStates
-	devsInfo = append(devsInfo, &ds)
+	if m.MuxNums > 1 {
+		devsInfo = m.driver.GetDriverStatsMulti()
+	} else if m.MuxNums == 1 {
+		ds := m.driver.GetDriverStats()
+		var devsInfo []*types.DriverStates
+		devsInfo = append(devsInfo, &ds)
+	}
 
 	var poolsInfo []*types.PoolStates
 	for i, client := range m.clients {

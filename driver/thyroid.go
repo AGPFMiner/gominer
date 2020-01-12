@@ -114,6 +114,37 @@ func (thy *Thyroid) GetDriverStats() (stats types.DriverStates) {
 	return
 }
 
+func (thy *Thyroid) GetDriverStatsMulti() (statsMulti []*types.DriverStates) {
+	oneMin := thy.hr.RecentNSum(60)
+	fiveMin := thy.hr.RecentNSum(300)
+	oneHour := thy.hr.RecentNSum(3600)
+	totalNonces := thy.getNonceSum()
+
+	for board := 0; board < thy.muxNums; board++ {
+		stats := &types.DriverStates{}
+
+		stats.DriverName = "Thyroid"
+		stats.Status = thy.stats
+
+		norm := float64(thy.nonceStats[board]) / float64(totalNonces)
+		stats.NonceNum[0], stats.NonceNum[1], stats.NonceNum[2] = oneMin*norm, fiveMin*norm, oneHour*norm
+		stats.Hashrate[0], stats.Hashrate[1], stats.Hashrate[2] = oneMin*FourGiga*norm/60, fiveMin*FourGiga*norm/300, oneHour*FourGiga*norm/3600
+		stats.NonceStats = &thy.nonceStats
+		stats.Algo = thy.Client.AlgoName()
+
+		if thy.stats != types.Programming || !isOpenocdRunning() {
+			boardman.SelectJTAG(uint8(board + 1))
+			time.Sleep(1 * time.Millisecond)
+			stats.Temperature, stats.Voltage, _ = getTempeVolt()
+		} else {
+			stats.Temperature, stats.Voltage = "-273.15", "25K"
+		}
+		statsMulti = append(statsMulti, stats)
+	}
+
+	return
+}
+
 func (thy *Thyroid) RegisterMiningFuncs(algo string, mf MiningFuncs) {
 	thy.MiningFuncs[algo] = mf
 }
@@ -220,11 +251,6 @@ func getTempeVolt() (temp, voltage string, err error) {
 }
 
 func (thy *Thyroid) ProgramBitstream(bitstreamFilePath string) (err error) {
-	//multi board dev manage bit by other procress currently
-	if thy.muxNums > 1 {
-		return nil
-	}
-
 	var bitstreamName string
 	if isOpenocdRunning() {
 		log.Printf("openocd running")
