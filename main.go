@@ -70,10 +70,6 @@ func init() {
 	viper.SetDefault("polldelay", "60")
 	viper.SetDefault("noncetimeout", "1000")
 	viper.SetDefault("debug", "error")
-	viper.SetDefault("uartio", []int{5, 4, 3, 2})
-	viper.SetDefault("jtagio", []int{26, 25, 24, 6})
-	viper.SetDefault("resetio", []int{13, 12, 19, 18})
-	viper.SetDefault("slot", []int{})
 	viper.SetDefault("skipslots", []int{})
 
 	// Viper supports reading from yaml, toml and/or json files. Viper can
