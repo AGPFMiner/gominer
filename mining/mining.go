@@ -3,7 +3,7 @@ package mining
 import (
 	"time"
 
-	"github.com/dynm/gominer/clients"
+	"github.com/AGPFMiner/gominer/clients"
 
 	"go.uber.org/zap"
 )
@@ -31,10 +31,10 @@ type HashRateReport struct {
 
 type MinerArgs struct {
 	FPGADevice           string
+	BaudRate             uint
 	Client               *clients.Client
 	MuxNums              int
 	PollDelay            time.Duration
-	AutoProgramBit       bool
 	NonceTraverseTimeout time.Duration
 	Logger               *zap.Logger
 }

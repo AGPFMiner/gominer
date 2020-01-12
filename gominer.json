@@ -1,33 +1,20 @@
 {
     "driver": "thyroid",
+    "baudrate": "2000000",
     "device": "/dev/ttyAMA0",
-    "muxnum": "1",
-    "polldelay": "100",
-    "autoprogrambit": true,
+    "skipslots": [],
+    "muxnum": "12",
+    "debug": "debug",
+    "polldelay": "1",
     "noncetimeout": "1000",
-    "api-enable": "true",
-    "api-listen": "0.0.0.0:8000",
     "pools": [
         {
-            "url": "stratum+tcp://stratum.veopool.pw:8086",
-            "algo": "veo",
-            "user": "BJP1y2bNVefilvrxu2YjK0PSRPcqlWWmFfECXlmryKZ9uhXzxxpfQxPBv2hZeA6vpy8MIjiAkHqD7Zo3bdFCs6o=.x86",
+            "url": "stratum+tcp://ckb.sparkpool.com:8888",
+            "algo": "ckb",
+            "user": "ckb1qyqgvy2kra5csw5mzy5203mkzdtr3de7qkcsrddj2u.a1",
             "pass": "x",
-            "active": "true"
-        },
-        {
-            "url": "stratum+tcp://skunk.hk.nicehash.com:3362",
-            "algo": "skunk",
-            "user": "3LbZwEmdmzhAKZqYXwbs6e4uHcH1h2wQ24",
-            "pass": "x",
-            "active": "false"
-        },
-        {
-            "url": "stratum+tcp://dgb-odocrypt.f2pool.com:11115",
-            "user": "DEesW1UoEAUtM8mrwGHjfz1gdwPwqqRPzJ.x86",
-            "pass": "x",
-            "algo": "odocrypt",
-            "active": "false"
+            "active": "true",
+            "priority": "2"
         }
     ]
 }

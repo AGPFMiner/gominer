@@ -7,15 +7,16 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/dynm/gominer/algorithms/odocrypt"
-	"github.com/dynm/gominer/algorithms/skunk"
-	"github.com/dynm/gominer/algorithms/veo"
-	"github.com/dynm/gominer/algorithms/verus"
-	"github.com/dynm/gominer/algorithms/xdag"
-	"github.com/dynm/gominer/clients"
-	"github.com/dynm/gominer/driver"
-	"github.com/dynm/gominer/mining"
-	"github.com/dynm/gominer/types"
+	"github.com/AGPFMiner/gominer/algorithms/ckb"
+	"github.com/AGPFMiner/gominer/algorithms/odocrypt"
+	"github.com/AGPFMiner/gominer/algorithms/skunk"
+	"github.com/AGPFMiner/gominer/algorithms/veo"
+	"github.com/AGPFMiner/gominer/algorithms/verus"
+	"github.com/AGPFMiner/gominer/algorithms/xdag"
+	"github.com/AGPFMiner/gominer/clients"
+	"github.com/AGPFMiner/gominer/driver"
+	"github.com/AGPFMiner/gominer/mining"
+	"github.com/AGPFMiner/gominer/types"
 
 	"github.com/gorilla/mux"
 	"github.com/gorilla/rpc"
@@ -63,12 +64,12 @@ type Miner struct {
 	Pools []types.Pool
 
 	Driver, DevPath                 string
+	BaudRate                        uint
 	MuxNums                         int
 	PollDelay, NonceTraverseTimeout int64
 
-	WebEnable      bool
-	WebListen      string
-	AutoProgramBit bool
+	WebEnable bool
+	WebListen string
 
 	LogLevel    string
 	currentAlgo string
@@ -81,6 +82,8 @@ type Miner struct {
 
 func getMinerByName(pool *types.Pool) (mining.Miner, clients.Client, error) {
 	switch pool.Algo {
+	case "ckb":
+		return &ckb.Miner{}, ckb.NewClient(pool), nil
 	case "odocrypt":
 		return &odocrypt.Miner{}, odocrypt.NewClient(pool), nil
 	case "veo":
@@ -127,9 +130,9 @@ func (m *Miner) Reload() {
 
 	driverArgs := &mining.MinerArgs{}
 	driverArgs.FPGADevice = m.DevPath
+	driverArgs.BaudRate = m.BaudRate
 	driverArgs.MuxNums = m.MuxNums
 	driverArgs.PollDelay = time.Duration(m.PollDelay)
-	driverArgs.AutoProgramBit = m.AutoProgramBit
 	if m.NonceTraverseTimeout != 0 {
 		driverArgs.NonceTraverseTimeout = time.Duration(m.NonceTraverseTimeout)
 	}
@@ -142,7 +145,6 @@ func (m *Miner) Reload() {
 	m.driver.SetClient(m.clients[m.activeIdx])
 	if prevAlgo != m.currentAlgo {
 		prevAlgo = m.currentAlgo
-		go m.driver.ProgramBitstream("", m.AutoProgramBit)
 	}
 
 	m.driver.Start()
@@ -160,6 +162,7 @@ func (m *Miner) MinerMain() {
 
 	driverArgs := &mining.MinerArgs{}
 	driverArgs.FPGADevice = m.DevPath
+	driverArgs.BaudRate = m.BaudRate
 	driverArgs.MuxNums = m.MuxNums
 	driverArgs.PollDelay = time.Duration(m.PollDelay)
 	if m.NonceTraverseTimeout != 0 {
@@ -170,6 +173,8 @@ func (m *Miner) MinerMain() {
 	switch m.Driver {
 	case "thyroid":
 		m.driver = driver.NewThyroid(*driverArgs)
+	case "thyroidUSB":
+		// m.driver = driver.NewThyroidUSB(*driverArgs)
 	}
 
 	for i, pool := range m.Pools {
@@ -186,6 +191,7 @@ func (m *Miner) MinerMain() {
 		// m.miners[i] = &miner
 	}
 
+	m.driver.RegisterMiningFuncs("ckb", &ckb.MiningFuncs{})
 	m.driver.RegisterMiningFuncs("odocrypt", &odocrypt.MiningFuncs{})
 	m.driver.RegisterMiningFuncs("veo", &veo.MiningFuncs{})
 	m.driver.RegisterMiningFuncs("skunk", &skunk.MiningFuncs{})
@@ -197,7 +203,7 @@ func (m *Miner) MinerMain() {
 	case "odocrypt":
 		// let driver manage odo bit
 	default:
-		go m.driver.ProgramBitstream("", m.AutoProgramBit)
+		go m.driver.ProgramBitstream("")
 	}
 	m.driver.Start()
 
@@ -247,10 +253,14 @@ func (m *Miner) GetHardwareStats(r *http.Request, args *MinerRPCArgs, reply *Dri
 }
 
 func (m *Miner) GetScriptaStatus(w http.ResponseWriter, r *http.Request) {
-	ds := m.driver.GetDriverStats()
-
 	var devsInfo []*types.DriverStates
-	devsInfo = append(devsInfo, &ds)
+	if m.MuxNums > 1 {
+		devsInfo = m.driver.GetDriverStatsMulti()
+	} else if m.MuxNums == 1 {
+		ds := m.driver.GetDriverStats()
+		var devsInfo []*types.DriverStates
+		devsInfo = append(devsInfo, &ds)
+	}
 
 	var poolsInfo []*types.PoolStates
 	for i, client := range m.clients {
@@ -291,7 +301,7 @@ func (m *Miner) MinerCtrl(w http.ResponseWriter, r *http.Request) {
 	cmd := cmds[0]
 	switch cmd {
 	case "programbitstream":
-		err := m.driver.ProgramBitstream("", true)
+		err := m.driver.ProgramBitstream("")
 		log.Print(err)
 		if err != nil {
 			w.WriteHeader(http.StatusOK)

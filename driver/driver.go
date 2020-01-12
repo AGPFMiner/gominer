@@ -1,8 +1,8 @@
 package driver
 
 import (
-	"github.com/dynm/gominer/clients"
-	"github.com/dynm/gominer/types"
+	"github.com/AGPFMiner/gominer/clients"
+	"github.com/AGPFMiner/gominer/types"
 )
 
 const (
@@ -33,8 +33,9 @@ type Driver interface {
 	Start()
 	Stop()
 	GetDriverStats() types.DriverStates
+	GetDriverStatsMulti() []*types.DriverStates
 	RegisterMiningFuncs(string, MiningFuncs)
 	Init(interface{})
-	ProgramBitstream(bitstreamPath string, enabled bool) (err error)
+	ProgramBitstream(bitstreamPath string) (err error)
 	SetClient(clients.Client)
 }

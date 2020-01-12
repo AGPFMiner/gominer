@@ -2,11 +2,12 @@ package odocrypt
 
 import (
 	"encoding/hex"
-	"github.com/dynm/gominer/algorithms/generalstratum"
-	"github.com/dynm/gominer/clients/stratum"
-	"github.com/dynm/gominer/driver"
-	"github.com/dynm/gominer/mining"
 	"time"
+
+	"github.com/AGPFMiner/gominer/algorithms/generalstratum"
+	"github.com/AGPFMiner/gominer/clients/stratum"
+	"github.com/AGPFMiner/gominer/driver"
+	"github.com/AGPFMiner/gominer/mining"
 
 	"go.uber.org/zap"
 )
@@ -74,7 +75,7 @@ func ConstructHeaderPackets(header []byte, boardJobID uint8) (fpgaPacket []byte)
 		fpgaPacket = append(fpgaPacket, data...)
 	}
 
-	testMode, _ := hex.DecodeString("0681000000000")
+	testMode, _ := hex.DecodeString("068100000000")
 	fpgaPacket = append(fpgaPacket, testMode...)
 
 	var temp []byte

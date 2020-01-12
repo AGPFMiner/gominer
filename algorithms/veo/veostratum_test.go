@@ -1,7 +1,7 @@
 package veo
 
 import (
-	"github.com/dynm/gominer/clients/stratum"
+	"github.com/AGPFMiner/gominer/clients/stratum"
 	"testing"
 	"time"
 

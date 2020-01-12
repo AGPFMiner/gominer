@@ -8,7 +8,7 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/dynm/gominer/clients"
+	"github.com/AGPFMiner/gominer/clients"
 )
 
 // NewClient creates a new SiadClient given a '[stratum+tcp://]host:port' connectionstring

@@ -1,8 +1,8 @@
 package xdag
 
 import (
-	"github.com/dynm/gominer/driver"
-	"github.com/dynm/gominer/mining"
+	"github.com/AGPFMiner/gominer/driver"
+	"github.com/AGPFMiner/gominer/mining"
 	"math/rand"
 	"time"
 
