@@ -11,7 +11,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/dynm/gominer/types"
+	"github.com/AGPFMiner/gominer/types"
 )
 
 // request : A remote method is invoked by sending a request to the remote stratum service.

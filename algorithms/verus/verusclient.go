@@ -3,8 +3,8 @@ package verus
 import (
 	"strings"
 
-	"github.com/dynm/gominer/clients"
-	"github.com/dynm/gominer/types"
+	"github.com/AGPFMiner/gominer/clients"
+	"github.com/AGPFMiner/gominer/types"
 )
 
 // NewClient creates a new SiadClient given a '[stratum+tcp://]host:port' connectionstring

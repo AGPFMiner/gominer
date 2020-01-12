@@ -1,8 +1,8 @@
 package driver
 
 import (
-	"github.com/dynm/gominer/clients"
-	"github.com/dynm/gominer/types"
+	"github.com/AGPFMiner/gominer/clients"
+	"github.com/AGPFMiner/gominer/types"
 )
 
 const (

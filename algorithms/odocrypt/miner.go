@@ -4,10 +4,10 @@ import (
 	"encoding/hex"
 	"time"
 
-	"github.com/dynm/gominer/algorithms/generalstratum"
-	"github.com/dynm/gominer/clients/stratum"
-	"github.com/dynm/gominer/driver"
-	"github.com/dynm/gominer/mining"
+	"github.com/AGPFMiner/gominer/algorithms/generalstratum"
+	"github.com/AGPFMiner/gominer/clients/stratum"
+	"github.com/AGPFMiner/gominer/driver"
+	"github.com/AGPFMiner/gominer/mining"
 
 	"go.uber.org/zap"
 )

@@ -17,12 +17,12 @@ import (
 
 	"sync/atomic"
 
-	"github.com/dynm/gominer/boardman"
-	"github.com/dynm/gominer/clients"
-	"github.com/dynm/gominer/clients/stratum"
-	"github.com/dynm/gominer/mining"
-	"github.com/dynm/gominer/statistics"
-	"github.com/dynm/gominer/types"
+	"github.com/AGPFMiner/gominer/boardman"
+	"github.com/AGPFMiner/gominer/clients"
+	"github.com/AGPFMiner/gominer/clients/stratum"
+	"github.com/AGPFMiner/gominer/mining"
+	"github.com/AGPFMiner/gominer/statistics"
+	"github.com/AGPFMiner/gominer/types"
 	"github.com/spf13/viper"
 	"github.com/stianeikeland/go-rpio"
 

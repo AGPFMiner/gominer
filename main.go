@@ -17,8 +17,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/dynm/gominer/miner"
-	"github.com/dynm/gominer/types"
+	"github.com/AGPFMiner/gominer/miner"
+	"github.com/AGPFMiner/gominer/types"
 
 	"github.com/fsnotify/fsnotify"
 	"github.com/spf13/cobra"

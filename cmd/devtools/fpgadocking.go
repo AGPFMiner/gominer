@@ -10,10 +10,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/dynm/gominer/algorithms/ckb"
-	"github.com/dynm/gominer/algorithms/odocrypt"
-	"github.com/dynm/gominer/clients"
-	"github.com/dynm/gominer/types"
+	"github.com/AGPFMiner/gominer/algorithms/ckb"
+	"github.com/AGPFMiner/gominer/algorithms/odocrypt"
+	"github.com/AGPFMiner/gominer/clients"
+	"github.com/AGPFMiner/gominer/types"
 
 	"github.com/jacobsa/go-serial/serial"
 	// _ "net/http/pprof"

@@ -9,9 +9,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/dynm/gominer/clients"
-	"github.com/dynm/gominer/clients/stratum"
-	"github.com/dynm/gominer/types"
+	"github.com/AGPFMiner/gominer/clients"
+	"github.com/AGPFMiner/gominer/clients/stratum"
+	"github.com/AGPFMiner/gominer/types"
 
 	"github.com/mitchellh/mapstructure"
 )

@@ -3,7 +3,7 @@ package mining
 import (
 	"time"
 
-	"github.com/dynm/gominer/clients"
+	"github.com/AGPFMiner/gominer/clients"
 
 	"go.uber.org/zap"
 )

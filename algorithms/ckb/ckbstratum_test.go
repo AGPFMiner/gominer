@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/dynm/gominer/types"
+	"github.com/AGPFMiner/gominer/types"
 )
 
 var ckbPool = &types.Pool{
