@@ -204,7 +204,7 @@ const (
 	rpiInterfacePath    = "/usr/share/openocd/scripts/interface/raspberrypi-native.cfg"
 	xc7CfgPath          = "/usr/share/openocd/scripts/cpld/xilinx-xc7.cfg"
 	xdacPath            = "/usr/share/openocd/scripts/fpga/xilinx-xadc.cfg"
-	adapterInit         = "adapter_khz 3000; init;"
+	adapterInit         = "adapter_khz 2500; init;"
 	BitStreamDir        = "/opt/scripta/bitstreams"
 	queryopenocdProcess = "sudo ps -aux | grep openocd | grep -v grep"
 )
