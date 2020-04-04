@@ -10,6 +10,7 @@ import (
 	"github.com/AGPFMiner/gominer/algorithms/ckb"
 	"github.com/AGPFMiner/gominer/algorithms/odocrypt"
 	"github.com/AGPFMiner/gominer/algorithms/skunk"
+	"github.com/AGPFMiner/gominer/algorithms/trb"
 	"github.com/AGPFMiner/gominer/algorithms/veo"
 	"github.com/AGPFMiner/gominer/algorithms/verus"
 	"github.com/AGPFMiner/gominer/algorithms/xdag"
@@ -84,6 +85,8 @@ func getMinerByName(pool *types.Pool) (mining.Miner, clients.Client, error) {
 	switch pool.Algo {
 	case "ckb":
 		return &ckb.Miner{}, ckb.NewClient(pool), nil
+	case "trb":
+		return &trb.Miner{}, trb.NewClient(pool), nil
 	case "odocrypt":
 		return &odocrypt.Miner{}, odocrypt.NewClient(pool), nil
 	case "veo":
@@ -192,6 +195,7 @@ func (m *Miner) MinerMain() {
 	}
 
 	m.driver.RegisterMiningFuncs("ckb", &ckb.MiningFuncs{})
+	m.driver.RegisterMiningFuncs("trb", &trb.MiningFuncs{})
 	m.driver.RegisterMiningFuncs("odocrypt", &odocrypt.MiningFuncs{})
 	m.driver.RegisterMiningFuncs("veo", &veo.MiningFuncs{})
 	m.driver.RegisterMiningFuncs("skunk", &skunk.MiningFuncs{})
